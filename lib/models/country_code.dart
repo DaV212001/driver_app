@@ -1,0 +1,320 @@
+class CountryCode {
+  final String name;
+  final String code;
+  final String dialCode;
+
+  const CountryCode({
+    required this.name,
+    required this.code,
+    required this.dialCode,
+  });
+
+  String get flag {
+    if (code.length != 2) return '';
+    final upper = code.toUpperCase();
+    final first = upper.codeUnitAt(0) - 0x41 + 0x1F1E6;
+    final second = upper.codeUnitAt(1) - 0x41 + 0x1F1E6;
+    return String.fromCharCode(first) + String.fromCharCode(second);
+  }
+
+  static const CountryCode defaultCountry = CountryCode(
+    name: 'Ethiopia',
+    code: 'ET',
+    dialCode: '+251',
+  );
+
+  static CountryCode fromDialCode(String dialCode, {CountryCode fallback = defaultCountry}) {
+    final clean = dialCode.replaceAll(RegExp(r'[^0-9]'), '');
+    for (final c in allCountries) {
+      if (c.dialCode.replaceAll(RegExp(r'[^0-9]'), '') == clean) {
+        return c;
+      }
+    }
+    return fallback;
+  }
+
+  static CountryCode? findByPhoneNumber(String phone) {
+    final clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (clean.isEmpty) return null;
+    
+    // Sort by dial code length descending so that longer dial codes (e.g. +1242) match before shorter (+1)
+    final sorted = List<CountryCode>.from(allCountries)
+      ..sort((a, b) => b.dialCode.length.compareTo(a.dialCode.length));
+    for (final c in sorted) {
+      final dialDigits = c.dialCode.replaceAll(RegExp(r'[^0-9]'), '');
+      if (clean.startsWith(dialDigits)) {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  static List<CountryCode> search(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      return allCountries;
+    }
+    final cleanQ = q.replaceAll(RegExp(r'[^0-9]'), '');
+    return allCountries.where((c) {
+      final nameMatch = c.name.toLowerCase().contains(q);
+      final codeMatch = c.code.toLowerCase().contains(q);
+      final dialMatch = c.dialCode.toLowerCase().contains(q) ||
+          (cleanQ.isNotEmpty && c.dialCode.replaceAll(RegExp(r'[^0-9]'), '').startsWith(cleanQ));
+      return nameMatch || codeMatch || dialMatch;
+    }).toList();
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CountryCode &&
+          runtimeType == other.runtimeType &&
+          code == other.code &&
+          dialCode == other.dialCode;
+
+  @override
+  int get hashCode => code.hashCode ^ dialCode.hashCode;
+
+  @override
+  String toString() => '$name ($dialCode)';
+
+  static const List<CountryCode> allCountries = [
+    CountryCode(name: 'Ethiopia', code: 'ET', dialCode: '+251'),
+    CountryCode(name: 'Afghanistan', code: 'AF', dialCode: '+93'),
+    CountryCode(name: 'Albania', code: 'AL', dialCode: '+355'),
+    CountryCode(name: 'Algeria', code: 'DZ', dialCode: '+213'),
+    CountryCode(name: 'American Samoa', code: 'AS', dialCode: '+1684'),
+    CountryCode(name: 'Andorra', code: 'AD', dialCode: '+376'),
+    CountryCode(name: 'Angola', code: 'AO', dialCode: '+244'),
+    CountryCode(name: 'Anguilla', code: 'AI', dialCode: '+1264'),
+    CountryCode(name: 'Antigua and Barbuda', code: 'AG', dialCode: '+1268'),
+    CountryCode(name: 'Argentina', code: 'AR', dialCode: '+54'),
+    CountryCode(name: 'Armenia', code: 'AM', dialCode: '+374'),
+    CountryCode(name: 'Aruba', code: 'AW', dialCode: '+297'),
+    CountryCode(name: 'Australia', code: 'AU', dialCode: '+61'),
+    CountryCode(name: 'Austria', code: 'AT', dialCode: '+43'),
+    CountryCode(name: 'Azerbaijan', code: 'AZ', dialCode: '+994'),
+    CountryCode(name: 'Bahamas', code: 'BS', dialCode: '+1242'),
+    CountryCode(name: 'Bahrain', code: 'BH', dialCode: '+973'),
+    CountryCode(name: 'Bangladesh', code: 'BD', dialCode: '+880'),
+    CountryCode(name: 'Barbados', code: 'BB', dialCode: '+1246'),
+    CountryCode(name: 'Belarus', code: 'BY', dialCode: '+375'),
+    CountryCode(name: 'Belgium', code: 'BE', dialCode: '+32'),
+    CountryCode(name: 'Belize', code: 'BZ', dialCode: '+501'),
+    CountryCode(name: 'Benin', code: 'BJ', dialCode: '+229'),
+    CountryCode(name: 'Bermuda', code: 'BM', dialCode: '+1441'),
+    CountryCode(name: 'Bhutan', code: 'BT', dialCode: '+975'),
+    CountryCode(name: 'Bolivia', code: 'BO', dialCode: '+591'),
+    CountryCode(name: 'Bosnia and Herzegovina', code: 'BA', dialCode: '+387'),
+    CountryCode(name: 'Botswana', code: 'BW', dialCode: '+267'),
+    CountryCode(name: 'Brazil', code: 'BR', dialCode: '+55'),
+    CountryCode(name: 'British Indian Ocean Territory', code: 'IO', dialCode: '+246'),
+    CountryCode(name: 'British Virgin Islands', code: 'VG', dialCode: '+1284'),
+    CountryCode(name: 'Brunei', code: 'BN', dialCode: '+673'),
+    CountryCode(name: 'Bulgaria', code: 'BG', dialCode: '+359'),
+    CountryCode(name: 'Burkina Faso', code: 'BF', dialCode: '+226'),
+    CountryCode(name: 'Burundi', code: 'BI', dialCode: '+257'),
+    CountryCode(name: 'Cambodia', code: 'KH', dialCode: '+855'),
+    CountryCode(name: 'Cameroon', code: 'CM', dialCode: '+237'),
+    CountryCode(name: 'Canada', code: 'CA', dialCode: '+1'),
+    CountryCode(name: 'Cape Verde', code: 'CV', dialCode: '+238'),
+    CountryCode(name: 'Caribbean Netherlands', code: 'BQ', dialCode: '+599'),
+    CountryCode(name: 'Cayman Islands', code: 'KY', dialCode: '+1345'),
+    CountryCode(name: 'Central African Republic', code: 'CF', dialCode: '+236'),
+    CountryCode(name: 'Chad', code: 'TD', dialCode: '+235'),
+    CountryCode(name: 'Chile', code: 'CL', dialCode: '+56'),
+    CountryCode(name: 'China', code: 'CN', dialCode: '+86'),
+    CountryCode(name: 'Colombia', code: 'CO', dialCode: '+57'),
+    CountryCode(name: 'Comoros', code: 'KM', dialCode: '+269'),
+    CountryCode(name: 'Congo', code: 'CG', dialCode: '+242'),
+    CountryCode(name: 'Cook Islands', code: 'CK', dialCode: '+682'),
+    CountryCode(name: 'Costa Rica', code: 'CR', dialCode: '+506'),
+    CountryCode(name: 'Croatia', code: 'HR', dialCode: '+385'),
+    CountryCode(name: 'Cuba', code: 'CU', dialCode: '+53'),
+    CountryCode(name: 'Curaçao', code: 'CW', dialCode: '+599'),
+    CountryCode(name: 'Cyprus', code: 'CY', dialCode: '+357'),
+    CountryCode(name: 'Czech Republic', code: 'CZ', dialCode: '+420'),
+    CountryCode(name: 'Democratic Republic of the Congo', code: 'CD', dialCode: '+243'),
+    CountryCode(name: 'Denmark', code: 'DK', dialCode: '+45'),
+    CountryCode(name: 'Djibouti', code: 'DJ', dialCode: '+253'),
+    CountryCode(name: 'Dominica', code: 'DM', dialCode: '+1767'),
+    CountryCode(name: 'Dominican Republic', code: 'DO', dialCode: '+1809'),
+    CountryCode(name: 'Ecuador', code: 'EC', dialCode: '+593'),
+    CountryCode(name: 'Egypt', code: 'EG', dialCode: '+20'),
+    CountryCode(name: 'El Salvador', code: 'SV', dialCode: '+503'),
+    CountryCode(name: 'Equatorial Guinea', code: 'GQ', dialCode: '+240'),
+    CountryCode(name: 'Eritrea', code: 'ER', dialCode: '+291'),
+    CountryCode(name: 'Estonia', code: 'EE', dialCode: '+372'),
+    CountryCode(name: 'Eswatini', code: 'SZ', dialCode: '+268'),
+    CountryCode(name: 'Falkland Islands', code: 'FK', dialCode: '+500'),
+    CountryCode(name: 'Faroe Islands', code: 'FO', dialCode: '+298'),
+    CountryCode(name: 'Fiji', code: 'FJ', dialCode: '+679'),
+    CountryCode(name: 'Finland', code: 'FI', dialCode: '+358'),
+    CountryCode(name: 'France', code: 'FR', dialCode: '+33'),
+    CountryCode(name: 'French Guiana', code: 'GF', dialCode: '+594'),
+    CountryCode(name: 'French Polynesia', code: 'PF', dialCode: '+689'),
+    CountryCode(name: 'Gabon', code: 'GA', dialCode: '+241'),
+    CountryCode(name: 'Gambia', code: 'GM', dialCode: '+220'),
+    CountryCode(name: 'Georgia', code: 'GE', dialCode: '+995'),
+    CountryCode(name: 'Germany', code: 'DE', dialCode: '+49'),
+    CountryCode(name: 'Ghana', code: 'GH', dialCode: '+233'),
+    CountryCode(name: 'Gibraltar', code: 'GI', dialCode: '+350'),
+    CountryCode(name: 'Greece', code: 'GR', dialCode: '+30'),
+    CountryCode(name: 'Greenland', code: 'GL', dialCode: '+299'),
+    CountryCode(name: 'Grenada', code: 'GD', dialCode: '+1473'),
+    CountryCode(name: 'Guadeloupe', code: 'GP', dialCode: '+590'),
+    CountryCode(name: 'Guam', code: 'GU', dialCode: '+1671'),
+    CountryCode(name: 'Guatemala', code: 'GT', dialCode: '+502'),
+    CountryCode(name: 'Guernsey', code: 'GG', dialCode: '+44'),
+    CountryCode(name: 'Guinea', code: 'GN', dialCode: '+224'),
+    CountryCode(name: 'Guinea-Bissau', code: 'GW', dialCode: '+245'),
+    CountryCode(name: 'Guyana', code: 'GY', dialCode: '+592'),
+    CountryCode(name: 'Haiti', code: 'HT', dialCode: '+509'),
+    CountryCode(name: 'Honduras', code: 'HN', dialCode: '+504'),
+    CountryCode(name: 'Hong Kong', code: 'HK', dialCode: '+852'),
+    CountryCode(name: 'Hungary', code: 'HU', dialCode: '+36'),
+    CountryCode(name: 'Iceland', code: 'IS', dialCode: '+354'),
+    CountryCode(name: 'India', code: 'IN', dialCode: '+91'),
+    CountryCode(name: 'Indonesia', code: 'ID', dialCode: '+62'),
+    CountryCode(name: 'Iran', code: 'IR', dialCode: '+98'),
+    CountryCode(name: 'Iraq', code: 'IQ', dialCode: '+964'),
+    CountryCode(name: 'Ireland', code: 'IE', dialCode: '+353'),
+    CountryCode(name: 'Isle of Man', code: 'IM', dialCode: '+44'),
+    CountryCode(name: 'Israel', code: 'IL', dialCode: '+972'),
+    CountryCode(name: 'Italy', code: 'IT', dialCode: '+39'),
+    CountryCode(name: 'Ivory Coast', code: 'CI', dialCode: '+225'),
+    CountryCode(name: 'Jamaica', code: 'JM', dialCode: '+1876'),
+    CountryCode(name: 'Japan', code: 'JP', dialCode: '+81'),
+    CountryCode(name: 'Jersey', code: 'JE', dialCode: '+44'),
+    CountryCode(name: 'Jordan', code: 'JO', dialCode: '+962'),
+    CountryCode(name: 'Kazakhstan', code: 'KZ', dialCode: '+7'),
+    CountryCode(name: 'Kenya', code: 'KE', dialCode: '+254'),
+    CountryCode(name: 'Kiribati', code: 'KI', dialCode: '+686'),
+    CountryCode(name: 'Kosovo', code: 'XK', dialCode: '+383'),
+    CountryCode(name: 'Kuwait', code: 'KW', dialCode: '+965'),
+    CountryCode(name: 'Kyrgyzstan', code: 'KG', dialCode: '+996'),
+    CountryCode(name: 'Laos', code: 'LA', dialCode: '+856'),
+    CountryCode(name: 'Latvia', code: 'LV', dialCode: '+371'),
+    CountryCode(name: 'Lebanon', code: 'LB', dialCode: '+961'),
+    CountryCode(name: 'Lesotho', code: 'LS', dialCode: '+266'),
+    CountryCode(name: 'Liberia', code: 'LR', dialCode: '+231'),
+    CountryCode(name: 'Libya', code: 'LY', dialCode: '+218'),
+    CountryCode(name: 'Liechtenstein', code: 'LI', dialCode: '+423'),
+    CountryCode(name: 'Lithuania', code: 'LT', dialCode: '+370'),
+    CountryCode(name: 'Luxembourg', code: 'LU', dialCode: '+352'),
+    CountryCode(name: 'Macau', code: 'MO', dialCode: '+853'),
+    CountryCode(name: 'Madagascar', code: 'MG', dialCode: '+261'),
+    CountryCode(name: 'Malawi', code: 'MW', dialCode: '+265'),
+    CountryCode(name: 'Malaysia', code: 'MY', dialCode: '+60'),
+    CountryCode(name: 'Maldives', code: 'MV', dialCode: '+960'),
+    CountryCode(name: 'Mali', code: 'ML', dialCode: '+223'),
+    CountryCode(name: 'Malta', code: 'MT', dialCode: '+356'),
+    CountryCode(name: 'Marshall Islands', code: 'MH', dialCode: '+692'),
+    CountryCode(name: 'Martinique', code: 'MQ', dialCode: '+596'),
+    CountryCode(name: 'Mauritania', code: 'MR', dialCode: '+222'),
+    CountryCode(name: 'Mauritius', code: 'MU', dialCode: '+230'),
+    CountryCode(name: 'Mayotte', code: 'YT', dialCode: '+262'),
+    CountryCode(name: 'Mexico', code: 'MX', dialCode: '+52'),
+    CountryCode(name: 'Micronesia', code: 'FM', dialCode: '+691'),
+    CountryCode(name: 'Moldova', code: 'MD', dialCode: '+373'),
+    CountryCode(name: 'Monaco', code: 'MC', dialCode: '+377'),
+    CountryCode(name: 'Mongolia', code: 'MN', dialCode: '+976'),
+    CountryCode(name: 'Montenegro', code: 'ME', dialCode: '+382'),
+    CountryCode(name: 'Montserrat', code: 'MS', dialCode: '+1664'),
+    CountryCode(name: 'Morocco', code: 'MA', dialCode: '+212'),
+    CountryCode(name: 'Mozambique', code: 'MZ', dialCode: '+258'),
+    CountryCode(name: 'Myanmar', code: 'MM', dialCode: '+95'),
+    CountryCode(name: 'Namibia', code: 'NA', dialCode: '+264'),
+    CountryCode(name: 'Nauru', code: 'NR', dialCode: '+674'),
+    CountryCode(name: 'Nepal', code: 'NP', dialCode: '+977'),
+    CountryCode(name: 'Netherlands', code: 'NL', dialCode: '+31'),
+    CountryCode(name: 'New Caledonia', code: 'NC', dialCode: '+687'),
+    CountryCode(name: 'New Zealand', code: 'NZ', dialCode: '+64'),
+    CountryCode(name: 'Nicaragua', code: 'NI', dialCode: '+505'),
+    CountryCode(name: 'Niger', code: 'NE', dialCode: '+227'),
+    CountryCode(name: 'Nigeria', code: 'NG', dialCode: '+234'),
+    CountryCode(name: 'Niue', code: 'NU', dialCode: '+683'),
+    CountryCode(name: 'North Korea', code: 'KP', dialCode: '+850'),
+    CountryCode(name: 'North Macedonia', code: 'MK', dialCode: '+389'),
+    CountryCode(name: 'Northern Mariana Islands', code: 'MP', dialCode: '+1670'),
+    CountryCode(name: 'Norway', code: 'NO', dialCode: '+47'),
+    CountryCode(name: 'Oman', code: 'OM', dialCode: '+968'),
+    CountryCode(name: 'Pakistan', code: 'PK', dialCode: '+92'),
+    CountryCode(name: 'Palau', code: 'PW', dialCode: '+680'),
+    CountryCode(name: 'Palestine', code: 'PS', dialCode: '+970'),
+    CountryCode(name: 'Panama', code: 'PA', dialCode: '+507'),
+    CountryCode(name: 'Papua New Guinea', code: 'PG', dialCode: '+675'),
+    CountryCode(name: 'Paraguay', code: 'PY', dialCode: '+595'),
+    CountryCode(name: 'Peru', code: 'PE', dialCode: '+51'),
+    CountryCode(name: 'Philippines', code: 'PH', dialCode: '+63'),
+    CountryCode(name: 'Poland', code: 'PL', dialCode: '+48'),
+    CountryCode(name: 'Portugal', code: 'PT', dialCode: '+351'),
+    CountryCode(name: 'Puerto Rico', code: 'PR', dialCode: '+1787'),
+    CountryCode(name: 'Qatar', code: 'QA', dialCode: '+974'),
+    CountryCode(name: 'Reunion', code: 'RE', dialCode: '+262'),
+    CountryCode(name: 'Romania', code: 'RO', dialCode: '+40'),
+    CountryCode(name: 'Russia', code: 'RU', dialCode: '+7'),
+    CountryCode(name: 'Rwanda', code: 'RW', dialCode: '+250'),
+    CountryCode(name: 'Saint Barthélemy', code: 'BL', dialCode: '+590'),
+    CountryCode(name: 'Saint Helena', code: 'SH', dialCode: '+290'),
+    CountryCode(name: 'Saint Kitts and Nevis', code: 'KN', dialCode: '+1869'),
+    CountryCode(name: 'Saint Lucia', code: 'LC', dialCode: '+1758'),
+    CountryCode(name: 'Saint Martin', code: 'MF', dialCode: '+590'),
+    CountryCode(name: 'Saint Pierre and Miquelon', code: 'PM', dialCode: '+508'),
+    CountryCode(name: 'Saint Vincent and the Grenadines', code: 'VC', dialCode: '+1784'),
+    CountryCode(name: 'Samoa', code: 'WS', dialCode: '+685'),
+    CountryCode(name: 'San Marino', code: 'SM', dialCode: '+378'),
+    CountryCode(name: 'Sao Tome and Principe', code: 'ST', dialCode: '+239'),
+    CountryCode(name: 'Saudi Arabia', code: 'SA', dialCode: '+966'),
+    CountryCode(name: 'Senegal', code: 'SN', dialCode: '+221'),
+    CountryCode(name: 'Serbia', code: 'RS', dialCode: '+381'),
+    CountryCode(name: 'Seychelles', code: 'SC', dialCode: '+248'),
+    CountryCode(name: 'Sierra Leone', code: 'SL', dialCode: '+232'),
+    CountryCode(name: 'Singapore', code: 'SG', dialCode: '+65'),
+    CountryCode(name: 'Sint Maarten', code: 'SX', dialCode: '+1721'),
+    CountryCode(name: 'Slovakia', code: 'SK', dialCode: '+421'),
+    CountryCode(name: 'Slovenia', code: 'SI', dialCode: '+386'),
+    CountryCode(name: 'Solomon Islands', code: 'SB', dialCode: '+677'),
+    CountryCode(name: 'Somalia', code: 'SO', dialCode: '+252'),
+    CountryCode(name: 'South Africa', code: 'ZA', dialCode: '+27'),
+    CountryCode(name: 'South Korea', code: 'KR', dialCode: '+82'),
+    CountryCode(name: 'South Sudan', code: 'SS', dialCode: '+211'),
+    CountryCode(name: 'Spain', code: 'ES', dialCode: '+34'),
+    CountryCode(name: 'Sri Lanka', code: 'LK', dialCode: '+94'),
+    CountryCode(name: 'Sudan', code: 'SD', dialCode: '+249'),
+    CountryCode(name: 'Suriname', code: 'SR', dialCode: '+597'),
+    CountryCode(name: 'Sweden', code: 'SE', dialCode: '+46'),
+    CountryCode(name: 'Switzerland', code: 'CH', dialCode: '+41'),
+    CountryCode(name: 'Syria', code: 'SY', dialCode: '+963'),
+    CountryCode(name: 'Taiwan', code: 'TW', dialCode: '+886'),
+    CountryCode(name: 'Tajikistan', code: 'TJ', dialCode: '+992'),
+    CountryCode(name: 'Tanzania', code: 'TZ', dialCode: '+255'),
+    CountryCode(name: 'Thailand', code: 'TH', dialCode: '+66'),
+    CountryCode(name: 'Timor-Leste', code: 'TL', dialCode: '+670'),
+    CountryCode(name: 'Togo', code: 'TG', dialCode: '+228'),
+    CountryCode(name: 'Tokelau', code: 'TK', dialCode: '+690'),
+    CountryCode(name: 'Tonga', code: 'TO', dialCode: '+676'),
+    CountryCode(name: 'Trinidad and Tobago', code: 'TT', dialCode: '+1868'),
+    CountryCode(name: 'Tunisia', code: 'TN', dialCode: '+216'),
+    CountryCode(name: 'Turkey', code: 'TR', dialCode: '+90'),
+    CountryCode(name: 'Turkmenistan', code: 'TM', dialCode: '+993'),
+    CountryCode(name: 'Turks and Caicos Islands', code: 'TC', dialCode: '+1649'),
+    CountryCode(name: 'Tuvalu', code: 'TV', dialCode: '+688'),
+    CountryCode(name: 'Uganda', code: 'UG', dialCode: '+256'),
+    CountryCode(name: 'Ukraine', code: 'UA', dialCode: '+380'),
+    CountryCode(name: 'United Arab Emirates', code: 'AE', dialCode: '+971'),
+    CountryCode(name: 'United Kingdom', code: 'GB', dialCode: '+44'),
+    CountryCode(name: 'United States', code: 'US', dialCode: '+1'),
+    CountryCode(name: 'Uruguay', code: 'UY', dialCode: '+598'),
+    CountryCode(name: 'Uzbekistan', code: 'UZ', dialCode: '+998'),
+    CountryCode(name: 'Vanuatu', code: 'VU', dialCode: '+678'),
+    CountryCode(name: 'Vatican City', code: 'VA', dialCode: '+379'),
+    CountryCode(name: 'Venezuela', code: 'VE', dialCode: '+58'),
+    CountryCode(name: 'Vietnam', code: 'VN', dialCode: '+84'),
+    CountryCode(name: 'Wallis and Futuna', code: 'WF', dialCode: '+681'),
+    CountryCode(name: 'Western Sahara', code: 'EH', dialCode: '+212'),
+    CountryCode(name: 'Yemen', code: 'YE', dialCode: '+967'),
+    CountryCode(name: 'Zambia', code: 'ZM', dialCode: '+260'),
+    CountryCode(name: 'Zimbabwe', code: 'ZW', dialCode: '+263'),
+  ];
+}

@@ -1,0 +1,29 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "amn-driver-app",
+          "appId": "1:368083384192:android:c372090640d9bbb0493365",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "amn-driver-app",
+          "appId": "1:368083384192:ios:3670a8ba7c0e243e493365",
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "amn-driver-app",
+          "configurations": {
+            "android": "1:368083384192:android:c372090640d9bbb0493365",
+            "ios": "1:368083384192:ios:3670a8ba7c0e243e493365"
+          }
+        }
+      }
+    }
+  }
+}
