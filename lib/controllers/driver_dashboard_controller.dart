@@ -19,6 +19,7 @@ import '../services/driver_socket_service.dart';
 import '../services/gebeta_location_service.dart';
 import '../services/notification_service.dart';
 import '../services/order_alert_service.dart';
+import '../utils/location_utils.dart';
 import 'active_delivery_controller.dart';
 import 'earnings_controller.dart';
 import 'profile_controller.dart';
@@ -526,7 +527,9 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     double? toLatitude,
     double? toLongitude,
     int? carTypeId,
+    double? basePrice,
     double? kmPrice,
+    double? totalKm,
     double? totalPrice,
     String? description,
     String? fromFriendlyLocation,
@@ -541,17 +544,36 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
 
     final defaultCarType = int.tryParse(StorageConfig.getDriverVehicleId() ?? '') ?? 1;
     final defaultKm = StorageConfig.getPickupKmPrice() ?? 23.21;
-    final defaultTotal = StorageConfig.getPickupStartPrice() ?? 168.66;
+    final defaultBase = StorageConfig.getPickupStartPrice() ?? 168.66;
+
+    final resolvedFromLat = fromLatitude ?? 9.02497;
+    final resolvedFromLng = fromLongitude ?? 38.74689;
+    final resolvedToLat = toLatitude ?? 8.98060;
+    final resolvedToLng = toLongitude ?? 38.75780;
+
+    final calculatedKm = totalKm ??
+        LocationUtils.calculateDistanceInKm(
+          lat1: resolvedFromLat,
+          lon1: resolvedFromLng,
+          lat2: resolvedToLat,
+          lon2: resolvedToLng,
+        );
+    final resolvedKmPrice = kmPrice ?? defaultKm;
+    final resolvedBase = basePrice ?? defaultBase;
+    final resolvedTotal = totalPrice ??
+        double.parse((resolvedBase + (calculatedKm * resolvedKmPrice)).toStringAsFixed(2));
 
     final req = PickupOrderRequest(
-      fromLatitude: fromLatitude ?? 9.02497,
-      fromLongitude: fromLongitude ?? 38.74689,
-      toLatitude: toLatitude ?? 8.98060,
-      toLongitude: toLongitude ?? 38.75780,
+      fromLatitude: resolvedFromLat,
+      fromLongitude: resolvedFromLng,
+      toLatitude: resolvedToLat,
+      toLongitude: resolvedToLng,
       senderPhone: senderPhone,
       carTypeId: carTypeId ?? defaultCarType,
-      kmPrice: kmPrice ?? defaultKm,
-      totalPrice: totalPrice ?? defaultTotal,
+      basePrice: resolvedBase,
+      kmPrice: resolvedKmPrice,
+      totalKm: double.parse(calculatedKm.toStringAsFixed(2)),
+      totalPrice: resolvedTotal,
       description: description ?? 'Fragile electronics. Please call upon arrival.',
       fromFriendlyLocation: (fromFriendlyLocation != null && fromFriendlyLocation.isNotEmpty)
           ? fromFriendlyLocation
@@ -576,7 +598,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     final orderId = createdOrderId ??
         'STR-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
-    final calculatedPayout = totalPrice ?? defaultTotal;
+    final calculatedPayout = resolvedTotal;
     final newTask = DeliveryTask(
       id: orderId.startsWith('STR-') ? 'TSK-$orderId' : orderId,
       orderNumber: orderId.startsWith('STR-') ? 'AMN-$orderId' : 'AMN-$orderId',
@@ -587,7 +609,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
       customerName: 'Customer',
       customerPhone: customerPhone,
       customerAddress: destinationAddress,
-      customerDistanceKm: 6.8,
+      customerDistanceKm: double.parse(calculatedKm.toStringAsFixed(2)),
       payoutAmount: calculatedPayout,
       tipAmount: 0.0,
       paymentMethod: 'Cash',

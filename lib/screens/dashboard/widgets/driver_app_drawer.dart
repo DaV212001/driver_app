@@ -371,14 +371,14 @@ class DriverAppDrawer extends StatelessWidget {
                   //     Get.toNamed(Pages.earnings);
                   //   },
                   // ),
-                  // _DrawerTile(
-                  //   icon: Icons.directions_car_rounded,
-                  //   label: 'Services',
-                  //   onTap: () {
-                  //     Navigator.pop(context);
-                  //     Get.toNamed(Pages.services);
-                  //   },
-                  // ),
+                  _DrawerTile(
+                    icon: Icons.directions_car_rounded,
+                    label: 'Services',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Get.toNamed(Pages.services);
+                    },
+                  ),
                   _DrawerTile(
                     icon: Icons.account_balance_wallet_outlined,
                     label: 'Wallet',

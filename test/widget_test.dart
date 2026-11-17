@@ -58,25 +58,24 @@ void main() {
     expect(find.text('Active & Ready'), findsNothing);
 
     // Verify Destinations floating button on the map canvas
-    expect(find.byTooltip('Destinations'), findsOneWidget);
+    expect(find.byTooltip('Street Pickup'), findsOneWidget);
 
     // Open side bar (drawer) where bottom navigation items were moved
     await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
     // Verify moved navigation items in the side bar
-    expect(find.text('AMN Miles'), findsOneWidget);
+    expect(find.text('Wallet'), findsOneWidget);
     expect(find.text('Services'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
-    // Tap on AMN Miles tab (Earnings & Rewards)
-    await tester.tap(find.text('AMN Miles'));
+    // Tap on Wallet tab
+    await tester.tap(find.text('Wallet'));
     await tester.pumpAndSettle();
 
-    // Verify Earnings screen shows ETB balance and Cash Out button
-    expect(find.text('Earnings & Payouts'), findsOneWidget);
-    expect(find.text('Cash Out Now'), findsOneWidget);
-    expect(find.text('Weekly Earnings'), findsOneWidget);
+    // Verify Wallet screen shows ETB balance and Top-up button
+    expect(find.text('Wallet'), findsWidgets);
+    expect(find.text('Top-up'), findsOneWidget);
 
     // Clean up active controller timers
     if (Get.isRegistered<DriverDashboardController>()) {

@@ -764,7 +764,9 @@ void main() {
         toLongitude: 38.75780,
         senderPhone: '251911058179',
         carTypeId: 1,
+        basePrice: 50.00,
         kmPrice: 35.00,
+        totalKm: 5.71,
         totalPrice: 250.00,
         description: 'Fragile electronics. Please call upon arrival.',
         fromFriendlyLocation: 'bole',
@@ -1273,7 +1275,7 @@ void main() {
 
       expect(controller.cities.length, 1);
       expect(controller.cities.first.id, 5);
-      expect(controller.selectedCityId.value, 5);
+      expect(controller.selectedCityId.value, isNull);
     });
 
     test('12b. Fetch Delivery Price by car type and city ID determines pickup price correctly', () async {

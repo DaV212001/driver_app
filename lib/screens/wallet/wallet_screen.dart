@@ -71,32 +71,35 @@ class WalletScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          isHidden
-                              ? 'ETB •••••'
-                              : 'ETB ${earnings.availableBalance.toStringAsFixed(1)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
                             isHidden
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: Colors.white70,
-                            size: 22,
+                                ? 'ETB •••••'
+                                : 'ETB ${earnings.availableBalance.toStringAsFixed(1)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                          onPressed: controller.toggleBalanceVisibility,
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                              isHidden
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.white70,
+                              size: 22,
+                            ),
+                            onPressed: controller.toggleBalanceVisibility,
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 18),
                     // Action Buttons (Top-up active; Withdraw & Transfer commented out)
@@ -307,21 +310,27 @@ class WalletScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _BreakdownMetric(
-                          label: selectedTab == 'Daily'
-                              ? "Today's Payout"
-                              : selectedTab == 'Weekly'
-                                  ? 'Weekly Total'
-                                  : 'Monthly Total',
-                          value: 'ETB ${earnings.todayEarnings.toStringAsFixed(1)}',
+                        Expanded(
+                          child: _BreakdownMetric(
+                            label: selectedTab == 'Daily'
+                                ? "Today's Payout"
+                                : selectedTab == 'Weekly'
+                                    ? 'Weekly Total'
+                                    : 'Monthly Total',
+                            value: 'ETB ${earnings.todayEarnings.toStringAsFixed(1)}',
+                          ),
                         ),
-                        _BreakdownMetric(
-                          label: 'Trips',
-                          value: '${earnings.todayDeliveries}',
+                        Expanded(
+                          child: _BreakdownMetric(
+                            label: 'Trips',
+                            value: '${earnings.todayDeliveries}',
+                          ),
                         ),
-                        _BreakdownMetric(
-                          label: 'Online Time',
-                          value: '${earnings.todayOnlineHours.toStringAsFixed(1)} hrs',
+                        Expanded(
+                          child: _BreakdownMetric(
+                            label: 'Online Time',
+                            value: '${earnings.todayOnlineHours.toStringAsFixed(1)} hrs',
+                          ),
                         ),
                       ],
                     ),
@@ -393,19 +402,27 @@ class _BreakdownMetric extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            ),
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],

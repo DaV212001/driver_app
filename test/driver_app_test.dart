@@ -427,14 +427,14 @@ void main() {
     expect(find.text("Today's Earnings"), findsOneWidget);
 
     // Verify Destinations floating button on map canvas
-    expect(find.byTooltip('Destinations'), findsOneWidget);
+    expect(find.byTooltip('Street Pickup'), findsOneWidget);
 
     // Open side bar (drawer) where bottom navigation items were moved
     await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
     // Verify Navigation Items moved to side bar
-    expect(find.text('AMN Miles'), findsOneWidget);
+    expect(find.text('Wallet'), findsOneWidget);
     expect(find.text('Services'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
   });
@@ -517,12 +517,12 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('DRIVER SETTINGS'), findsOneWidget);
 
-    // Go back and open AMN Miles from drawer
+    // Go back and open Wallet from drawer
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('AMN Miles'));
+    await tester.tap(find.text('Wallet'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
