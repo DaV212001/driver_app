@@ -47,12 +47,13 @@ class LocationProminentDisclosureDialog extends StatelessWidget {
       elevation: 8,
       backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Header Icon
             Center(
               child: Container(
@@ -180,6 +181,7 @@ class LocationProminentDisclosureDialog extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
