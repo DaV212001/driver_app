@@ -129,7 +129,10 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
       NotificationService.pendingIncomingOffer = null;
       NotificationService.routeToDashboard();
       triggerIncomingOffer(pending);
+      return;
     }
+    // Also check storage for pending offer queued in background
+    NotificationService.checkPendingOfferFromStorage();
   }
 
   /// Synchronize remaining countdown time when app is resumed from background

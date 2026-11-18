@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -861,9 +862,10 @@ void main() {
 
     test('NotificationService order notification detection and dedicated channel key', () {
       expect(NotificationService.orderAlertChannelKey, 'driver_order_alerts');
+      expect(NotificationService.promoChannelKey, 'driver_promotions');
       expect(NotificationService.channelKey, 'driver_notifications');
 
-      // Test payload recognition for orders
+      // Test payload recognition for normal orders
       expect(
         NotificationService.isOrderNotification({'order_id': '101', 'fare': '250'}),
         isTrue,
@@ -874,7 +876,35 @@ void main() {
       );
       expect(
         NotificationService.isOrderNotification({}, 'Incoming Delivery Order', 'New pickup request'),
+        isFalse,
+      );
+
+      // Test payload recognition for courier orders
+      expect(
+        NotificationService.isOrderNotification({'order_id': '201', 'order_type': 'courier', 'receiver_name': 'Abebe'}),
         isTrue,
+      );
+      expect(
+        NotificationService.isOrderNotification({'order_id': '202', 'type': 'courier_order'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isOrderNotification({}, 'New Courier Order Assigned', 'Package delivery from Bole to Piassa'),
+        isFalse,
+      );
+
+      // Test payload recognition for corporate orders
+      expect(
+        NotificationService.isOrderNotification({'order_id': '301', 'order_type': 'corporate', 'company_name': 'Ethio Telecom'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isOrderNotification({'order_id': '302', 'type': 'corporate_order'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isOrderNotification({}, 'Corporate Order Dispatch', 'Deliver documents to Kazanchis office'),
+        isFalse,
       );
 
       // Test bulk notifications and non-order payloads do NOT trigger as orders
@@ -908,7 +938,76 @@ void main() {
       );
     });
 
-    test('Bulk notifications without order payload do NOT trigger ringtone or incoming offer', () {
+    test('Promotional notifications are strictly separated and do NOT trigger as orders', () {
+      // 1. Explicit promotion types
+      expect(
+        NotificationService.isPromotionNotification({'type': 'promotion', 'title': '20% off', 'body': 'Get discounts'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'type': 'promotions'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'type': 'promotional'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'type': 'promo', 'promo_code': 'SAVE100'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'type': 'campaign', 'title': 'Weekend incentive'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'type': 'discount', 'title': 'Fuel discount'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'type': 'bonus', 'title': 'Driver incentive'}),
+        isTrue,
+      );
+
+      // 2. Explicit boolean flags in payload
+      expect(
+        NotificationService.isPromotionNotification({'is_promo': true, 'title': 'Special Event'}),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({'is_promotion': 'true'}),
+        isTrue,
+      );
+
+      // 3. Text indicators in Title/Body
+      expect(
+        NotificationService.isPromotionNotification({}, 'Exclusive Promo Code', 'Use DRIVER50 for savings'),
+        isTrue,
+      );
+      expect(
+        NotificationService.isPromotionNotification({}, 'Weekend Bonus', 'Earn extra cash this weekend'),
+        isTrue,
+      );
+
+      // 4. Promotional notifications that mention "orders" MUST NOT be recognized as orders!
+      final promoWithOrderWords = {
+        'type': 'promotion',
+        'title': 'New Order Bonus Promotion!',
+        'body': 'Complete 5 delivery orders today to earn a 500 ETB cash bonus!',
+      };
+      expect(NotificationService.isPromotionNotification(promoWithOrderWords), isTrue);
+      expect(NotificationService.isOrderNotification(promoWithOrderWords), isFalse);
+
+      final promoCourierWords = {
+        'is_promo': true,
+        'title': 'Courier Order Incentive Campaign',
+        'body': 'Get double points on all courier orders this week!',
+      };
+      expect(NotificationService.isPromotionNotification(promoCourierWords), isTrue);
+      expect(NotificationService.isOrderNotification(promoCourierWords), isFalse);
+    });
+
+    test('Bulk notifications and promotional offers do NOT trigger ringtone or incoming offer', () {
       Get.reset();
       StorageConfig.setIsOnline(true);
       StorageConfig.setActiveOrderId('');
@@ -931,6 +1030,87 @@ void main() {
       expect(OrderAlertService.instance.isRinging.value, isFalse);
       expect(controller.incomingOffer.value, isNull);
       expect(NotificationService.pendingIncomingOffer, isNull);
+
+      // Simulate receiving a promotional notification with order words
+      final promoPayload = {
+        'type': 'promotion',
+        'title': 'New Order Promotion',
+        'body': 'Complete your new orders to earn 200 ETB extra.',
+      };
+
+      NotificationService.dispatchIncomingOffer(promoPayload);
+
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+      expect(controller.incomingOffer.value, isNull);
+      expect(NotificationService.pendingIncomingOffer, isNull);
+
+      navCtrl.onClose();
+      controller.onClose();
+      Get.reset();
+    });
+
+    test('Courier and Corporate order notifications trigger incoming offer and ringtone', () {
+      Get.reset();
+      StorageConfig.setIsOnline(true);
+      StorageConfig.setActiveOrderId('');
+      OrderAlertService.instance.stopRinging();
+
+      final navCtrl = Get.put<MainDriverNavigationController>(MainDriverNavigationController());
+      final controller = Get.put<DriverDashboardController>(DriverDashboardController());
+      controller.isOnline.value = true;
+
+      // 1. Dispatch Courier Order
+      final courierPayload = {
+        'order_id': '9941',
+        'order_number': 'AMN-CR-9941',
+        'order_type': 'courier',
+        'type': 'courier_order',
+        'from_address': 'Bole, Addis Ababa',
+        'to_address': 'Kazanchis, Addis Ababa',
+        'receiver_name': 'Tadesse Gemechu',
+        'fare_amount': '250.0',
+        'total_price': '250.0',
+        'distance_km': '6.4',
+        'dropoff_minutes': '20',
+      };
+
+      NotificationService.dispatchIncomingOffer(courierPayload);
+
+      expect(controller.incomingOffer.value, isNotNull);
+      expect(controller.incomingOffer.value!.isCourier, isTrue);
+      expect(OrderAlertService.instance.isRinging.value, isTrue);
+
+      // Dismiss courier offer -> stops ringing
+      controller.dismissIncomingOffer();
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+      expect(controller.incomingOffer.value, isNull);
+
+      // 2. Dispatch Corporate Order
+      final corporatePayload = {
+        'order_id': '8842',
+        'order_number': 'AMN-CORP-8842',
+        'order_type': 'corporate',
+        'type': 'corporate_order',
+        'pickup_name': 'Commercial Bank of Ethiopia',
+        'pickup_address': 'Churchill Rd, Addis Ababa',
+        'dropoff_name': 'Bole Medhanealem Branch',
+        'dropoff_address': 'Bole, Addis Ababa',
+        'fare_amount': '550.0',
+        'total_price': '550.0',
+        'distance_km': '8.2',
+        'dropoff_minutes': '25',
+      };
+
+      NotificationService.dispatchIncomingOffer(corporatePayload);
+
+      expect(controller.incomingOffer.value, isNotNull);
+      expect(controller.incomingOffer.value!.isCorporate, isTrue);
+      expect(OrderAlertService.instance.isRinging.value, isTrue);
+
+      // Dismiss corporate offer -> stops ringing
+      controller.dismissIncomingOffer();
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+      expect(controller.incomingOffer.value, isNull);
 
       navCtrl.onClose();
       controller.onClose();
@@ -1120,6 +1300,84 @@ void main() {
       expect(OrderAlertService.instance.isRinging.value, isFalse);
 
       controller.onClose();
+    });
+
+    test('checkPendingOfferFromStorage resumes order saved during background notification and starts alert', () async {
+      Get.reset();
+      SharedPreferences.setMockInitialValues({});
+      await StorageConfig.init();
+      StorageConfig.setIsOnline(true);
+      StorageConfig.setActiveOrderId('');
+      OrderAlertService.instance.stopRinging();
+
+      final navCtrl = Get.put<MainDriverNavigationController>(MainDriverNavigationController());
+      final controller = Get.put<DriverDashboardController>(DriverDashboardController());
+      controller.isOnline.value = true;
+
+      // Simulate background isolate saving pending order to SharedPreferences
+      final pendingMap = {
+        'order_id': '7789',
+        'order_number': 'AMN-7789',
+        'order_type': 'delivery',
+        'type': 'new_order_assigned',
+        'pickup_name': 'Pizza Hut Bole',
+        'dropoff_name': 'Abebe',
+        'fare_amount': '280.0',
+        'distance_km': '5.0',
+        'dropoff_minutes': '15',
+        'received_at': DateTime.now().millisecondsSinceEpoch.toString(),
+        'duration_seconds': '120',
+      };
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('driver_pending_order_payload', jsonEncode(pendingMap));
+
+      // Resume app or trigger checkPendingOfferFromStorage
+      await NotificationService.checkPendingOfferFromStorage();
+
+      expect(controller.incomingOffer.value, isNotNull);
+      expect(controller.incomingOffer.value!.id, '7789');
+      expect(OrderAlertService.instance.isRinging.value, isTrue);
+
+      // Verify the storage key was cleaned up so it does not trigger again
+      expect(prefs.getString('driver_pending_order_payload'), isNull);
+
+      controller.dismissIncomingOffer();
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+
+      navCtrl.onClose();
+      controller.onClose();
+      Get.reset();
+    });
+
+    test('Promotional notifications stored in pending storage are ignored and do NOT trigger alert', () async {
+      Get.reset();
+      SharedPreferences.setMockInitialValues({});
+      await StorageConfig.init();
+      StorageConfig.setIsOnline(true);
+      StorageConfig.setActiveOrderId('');
+      OrderAlertService.instance.stopRinging();
+
+      final navCtrl = Get.put<MainDriverNavigationController>(MainDriverNavigationController());
+      final controller = Get.put<DriverDashboardController>(DriverDashboardController());
+      controller.isOnline.value = true;
+
+      final promoMap = {
+        'type': 'promotion',
+        'title': 'Driver Bonus Day!',
+        'body': 'Deliver 3 orders today and get 300 ETB bonus!',
+      };
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('driver_pending_order_payload', jsonEncode(promoMap));
+
+      await NotificationService.checkPendingOfferFromStorage();
+
+      // Must NOT ring and must NOT show incoming offer
+      expect(controller.incomingOffer.value, isNull);
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+
+      navCtrl.onClose();
+      controller.onClose();
+      Get.reset();
     });
   });
 

@@ -30,74 +30,119 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   logger.d('Body: ${message.notification?.body}');
   logger.d('Data: ${message.data}');
 
-  // If the background message contains a notification payload, AwesomeNotifications
-  // displays alerts. Only order notifications use the high-priority ringing channel.
-  if (message.data.isNotEmpty && message.notification == null) {
-    final rawTitle = message.data['title']?.toString();
-    final rawBody = message.data['body']?.toString();
-    final isOrder = NotificationService.isOrderNotification(message.data, rawTitle, rawBody);
+  final rawTitle = message.notification?.title ?? message.data['title']?.toString();
+  final rawBody = message.notification?.body ?? message.data['body']?.toString();
+  final isOrder = NotificationService.isOrderNotification(message.data, rawTitle, rawBody);
+  final isPromo = NotificationService.isPromotionNotification(message.data, rawTitle, rawBody);
 
-    final title = rawTitle ?? (isOrder ? 'New Order Update' : 'AMN Driver Update');
-    final body = rawBody ?? (isOrder ? 'You have a new update for your order.' : 'You have a new notification.');
+  final title = rawTitle ?? (isOrder ? 'New Order Alert 🔔' : (isPromo ? 'AMN Special Promotion' : 'AMN Driver Update'));
+  final body = rawBody ?? (isOrder ? 'New delivery order dispatch received.' : (isPromo ? 'Check out the latest promotion.' : 'You have a new notification.'));
 
+  // 1. ORDER NOTIFICATIONS (Corporate, Courier, Normal delivery):
+  // Must ring out immediately in the background without waiting for the app to open!
+  if (isOrder && !isPromo) {
     // Suppress background notifications if driver is offline or has an active order
-    if (isOrder) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final isOnline = prefs.getBool('driver_is_online') ?? false;
-        final activeOrderId = prefs.getString('driver_active_order_id');
-        final hasActiveOrder = activeOrderId != null && activeOrderId.isNotEmpty;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isOnline = prefs.getBool('driver_is_online') ?? false;
+      final activeOrderId = prefs.getString('driver_active_order_id');
+      final hasActiveOrder = activeOrderId != null && activeOrderId.isNotEmpty;
 
-        if (!isOnline || hasActiveOrder) {
-          logger.i('🔇 Suppressing background order alert: isOnline=$isOnline, hasActiveOrder=$hasActiveOrder');
-          return;
-        }
-      } catch (e) {
-        logger.w('Notice checking driver state in background: $e');
+      if (!isOnline || hasActiveOrder) {
+        logger.i('🔇 Suppressing background order alert: isOnline=$isOnline, hasActiveOrder=$hasActiveOrder');
+        return;
       }
+    } catch (e) {
+      logger.w('Notice checking driver state in background: $e');
     }
 
-    final targetChannel = isOrder
-        ? NotificationService.orderAlertChannelKey
+    final payloadMap = Map<String, String>.from(
+      message.data.map((k, v) => MapEntry(k, v.toString())),
+    );
+    final sentTimeMs = message.sentTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
+    payloadMap.putIfAbsent('received_at', () => sentTimeMs.toString());
+    payloadMap.putIfAbsent('duration_seconds', () => '120');
+
+    // Save pending offer payload to SharedPreferences so if driver opens app from home screen, it resumes
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('driver_pending_order_payload', jsonEncode(payloadMap));
+    } catch (e) {
+      logger.w('Notice saving pending offer to SharedPreferences: $e');
+    }
+
+    // 🔔 START RINGING IMMEDIATELY IN THE BACKGROUND
+    // Order notifications (corporate, courier, or normal) MUST ring out without waiting for app to open!
+    try {
+      await OrderAlertService.instance.initialize();
+      await OrderAlertService.instance.startRinging(autoStopAfter: const Duration(seconds: 120));
+    } catch (e) {
+      logger.w('Notice starting ringtone in background isolate: $e');
+    }
+
+    // Ensure notification channels are initialized
+    await NotificationService.ensureAwesomeNotificationsInitialized();
+
+    // Create high-priority full-screen alert notification with Accept/Dismiss buttons
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        channelKey: NotificationService.orderAlertChannelKey,
+        title: title,
+        body: body,
+        category: NotificationCategory.Call,
+        wakeUpScreen: true,
+        fullScreenIntent: true,
+        payload: payloadMap,
+        notificationLayout: NotificationLayout.Default,
+        displayOnForeground: true,
+        displayOnBackground: true,
+      ),
+      actionButtons: [
+        NotificationActionButton(
+          key: 'ACCEPT_ORDER',
+          label: 'Accept Order',
+          actionType: ActionType.Default,
+          color: const Color(0xFF1E88E5),
+        ),
+        NotificationActionButton(
+          key: 'DISMISS_ORDER',
+          label: 'Dismiss',
+          actionType: ActionType.DismissAction,
+          isDangerousOption: true,
+        ),
+      ],
+    );
+    return;
+  }
+
+  // 2. PROMOTIONAL & GENERAL NOTIFICATIONS:
+  // Must NOT trigger phone ringtone! Uses default notification sound only.
+  // If the message came with a native notification payload, the Android system tray
+  // already displayed it using the default notification channel.
+  // Only display an AwesomeNotification if it was a data-only push without a system notification.
+  if (message.notification == null && message.data.isNotEmpty) {
+    final targetChannel = isPromo
+        ? NotificationService.promoChannelKey
         : NotificationService.channelKey;
 
     final payloadMap = Map<String, String>.from(
       message.data.map((k, v) => MapEntry(k, v.toString())),
     );
-    if (isOrder) {
-      final sentTimeMs = message.sentTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
-      payloadMap.putIfAbsent('received_at', () => sentTimeMs.toString());
-      payloadMap.putIfAbsent('duration_seconds', () => '120');
-    }
 
+    await NotificationService.ensureAwesomeNotificationsInitialized();
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
         channelKey: targetChannel,
         title: title,
         body: body,
-        category: isOrder ? NotificationCategory.Call : NotificationCategory.Message,
-        wakeUpScreen: isOrder,
-        fullScreenIntent: isOrder,
+        category: NotificationCategory.Message,
+        wakeUpScreen: false,
+        fullScreenIntent: false,
         payload: payloadMap,
         notificationLayout: NotificationLayout.Default,
       ),
-      actionButtons: isOrder
-          ? [
-              NotificationActionButton(
-                key: 'ACCEPT_ORDER',
-                label: 'Accept Order',
-                actionType: ActionType.Default,
-                color: const Color(0xFF1E88E5),
-              ),
-              NotificationActionButton(
-                key: 'DISMISS_ORDER',
-                label: 'Dismiss',
-                actionType: ActionType.DismissAction,
-                isDangerousOption: true,
-              ),
-            ]
-          : null,
     );
   }
 }
@@ -122,6 +167,7 @@ class NotificationService {
 
   static const String channelKey = 'driver_notifications';
   static const String orderAlertChannelKey = 'driver_order_alerts';
+  static const String promoChannelKey = 'driver_promotions';
   static const String onlineServiceChannelKey = 'driver_online_service';
   static const String channelGroupKey = 'driver_channel_group';
   static const String notificationTokenEndpoint =
@@ -135,11 +181,193 @@ class NotificationService {
   static const String storeOwnerNotificationEndpoint =
       'https://notification.amnplc.com/api/push/Store-owner-notification';
 
-  /// Checks whether a push notification data payload represents an incoming order dispatch.
-  /// Returns false for bulk announcements, general broadcasts, system alerts, or any
-  /// notification lacking concrete order information.
+  /// Checks whether a push notification data payload represents a promotional offer,
+  /// marketing announcement, discount, bonus incentive, or general campaign.
+  ///
+  /// In the AMN backend architecture (well-known.zip):
+  /// - Order notifications MUST contain an order data payload (via FcmService withData: type, order_id).
+  /// - Promotional notifications sent via admin console do NOT contain an order payload.
+  ///
+  /// Promotional notifications MUST NOT trigger the phone ringtone or modal job offers.
+  static bool isPromotionNotification(Map<String, dynamic> data, [String? title, String? body]) {
+    final Map<String, dynamic> resolvedData = Map<String, dynamic>.from(data);
+    if (resolvedData['data'] != null) {
+      if (resolvedData['data'] is Map) {
+        resolvedData.addAll(Map<String, dynamic>.from(resolvedData['data'] as Map));
+      } else if (resolvedData['data'] is String) {
+        try {
+          final decoded = jsonDecode(resolvedData['data'] as String);
+          if (decoded is Map) {
+            resolvedData.addAll(Map<String, dynamic>.from(decoded));
+          }
+        } catch (_) {}
+      }
+    }
+
+    final hasOrderId = (resolvedData['order_id'] != null && resolvedData['order_id'].toString().trim().isNotEmpty) ||
+        (resolvedData['orderId'] != null && resolvedData['orderId'].toString().trim().isNotEmpty) ||
+        (resolvedData['order_number'] != null && resolvedData['order_number'].toString().trim().isNotEmpty) ||
+        (resolvedData['delivery_id'] != null && resolvedData['delivery_id'].toString().trim().isNotEmpty) ||
+        (resolvedData['job_id'] != null && resolvedData['job_id'].toString().trim().isNotEmpty);
+
+    // Rule 1: Backend architecture rule — promotional notifications do NOT contain an order payload.
+    // If the data payload is empty (or has no order ID) and title/body is present, it is promotional.
+    if (resolvedData.isEmpty && ((title != null && title.trim().isNotEmpty) || (body != null && body.trim().isNotEmpty))) {
+      return true;
+    }
+
+    // 2. Explicit boolean or string flags in payload
+    final isPromoFlag = resolvedData['is_promo'] ??
+        resolvedData['is_promotion'] ??
+        resolvedData['isPromotion'] ??
+        resolvedData['isPromo'] ??
+        resolvedData['promo'] ??
+        resolvedData['is_broadcast'] ??
+        resolvedData['is_announcement'];
+    if (isPromoFlag == true || isPromoFlag == 'true' || isPromoFlag == 1 || isPromoFlag == '1') {
+      return true;
+    }
+
+    // 3. Type / Event / Category field checks
+    final type = (resolvedData['type'] ??
+            resolvedData['event'] ??
+            resolvedData['notification_type'] ??
+            resolvedData['category'] ??
+            '')
+        .toString()
+        .trim()
+        .toLowerCase();
+
+    const promoTypes = [
+      'promo',
+      'promotion',
+      'promotions',
+      'promotional',
+      'marketing',
+      'campaign',
+      'marketing_campaign',
+      'discount',
+      'discounts',
+      'deal',
+      'deals',
+      'bonus',
+      'bonuses',
+      'incentive',
+      'incentives',
+      'reward',
+      'rewards',
+      'cashback',
+      'voucher',
+      'vouchers',
+      'coupon',
+      'coupons',
+      'referral',
+      'refer_a_friend',
+      'ad',
+      'advertisement',
+      'advertising',
+      'commercial',
+      'banner',
+      'broadcast',
+      'broadcasts',
+      'announcement',
+      'announcements',
+      'bulk',
+      'general',
+      'system',
+      'news',
+      'newsletter',
+      'notice',
+      'maintenance',
+      'policy',
+      'tip',
+      'tips',
+      'survey',
+      'event',
+      'greeting',
+      'info',
+      'informational',
+    ];
+
+    if (promoTypes.contains(type) ||
+        type.startsWith('promo') ||
+        type.startsWith('promotion') ||
+        type.startsWith('bulk') ||
+        type.startsWith('broadcast') ||
+        type.startsWith('announce') ||
+        type.startsWith('campaign') ||
+        type.startsWith('discount') ||
+        type.startsWith('bonus') ||
+        type.startsWith('reward') ||
+        type.startsWith('incentive')) {
+      return true;
+    }
+
+    // 4. Text inspection of Title and Body
+    final effectiveTitle = (title ?? resolvedData['title']?.toString() ?? '').toLowerCase();
+    final effectiveBody = (body ?? resolvedData['body']?.toString() ?? '').toLowerCase();
+    final combinedText = '$effectiveTitle $effectiveBody'.trim();
+
+    if (combinedText.isNotEmpty) {
+      const promoPhrases = [
+        'promotion',
+        'promotional',
+        'promo code',
+        'special promo',
+        'weekend promo',
+        'special offer',
+        'exclusive offer',
+        'limited time offer',
+        'limited offer',
+        'discount',
+        'cashback',
+        'earn bonus',
+        'extra bonus',
+        'weekend bonus',
+        'weekly bonus',
+        'driver incentive',
+        'earn extra',
+        'earn more',
+        'win prize',
+        'voucher',
+        'coupon',
+        'refer a friend',
+        'referral bonus',
+        'holiday offer',
+        'announcement',
+        'system maintenance',
+        'terms of service',
+        'policy update',
+        'survey',
+        'tip of the day',
+      ];
+
+      for (final phrase in promoPhrases) {
+        if (combinedText.contains(phrase)) {
+          if (!hasOrderId) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Checks whether a push notification data payload represents an incoming order dispatch
+  /// (normal delivery, courier, or corporate order).
+  ///
+  /// In the AMN backend architecture (FcmService.php in well-known.zip), order notifications
+  /// MUST contain a data payload with order identification (e.g. order_id, type: 'new_order', etc.),
+  /// whereas promotional/broadcast notifications do NOT contain an order data payload.
   static bool isOrderNotification(Map<String, dynamic> data, [String? title, String? body]) {
-    if (data.isEmpty && (title == null || title.trim().isEmpty) && (body == null || body.trim().isEmpty)) {
+    // 1. Order notifications MUST contain a non-empty data payload
+    if (data.isEmpty) {
+      return false;
+    }
+
+    // 2. If explicitly identified as promotional, it must NEVER be treated as an order dispatch!
+    if (isPromotionNotification(data, title, body)) {
       return false;
     }
 
@@ -158,6 +386,20 @@ class NotificationService {
       }
     }
 
+    // 3. Specific order identifier keys in payload (from backend FcmService withData: order_id)
+    final hasOrderId = (resolvedData['order_id'] != null && resolvedData['order_id'].toString().trim().isNotEmpty) ||
+        (resolvedData['orderId'] != null && resolvedData['orderId'].toString().trim().isNotEmpty) ||
+        (resolvedData['order_number'] != null && resolvedData['order_number'].toString().trim().isNotEmpty) ||
+        (resolvedData['orderNumber'] != null && resolvedData['orderNumber'].toString().trim().isNotEmpty) ||
+        (resolvedData['delivery_id'] != null && resolvedData['delivery_id'].toString().trim().isNotEmpty) ||
+        (resolvedData['deliveryId'] != null && resolvedData['deliveryId'].toString().trim().isNotEmpty) ||
+        (resolvedData['job_id'] != null && resolvedData['job_id'].toString().trim().isNotEmpty) ||
+        (resolvedData['jobId'] != null && resolvedData['jobId'].toString().trim().isNotEmpty);
+
+    if (hasOrderId) {
+      return true;
+    }
+
     final type = (resolvedData['type'] ??
             resolvedData['event'] ??
             resolvedData['notification_type'] ??
@@ -167,35 +409,15 @@ class NotificationService {
         .trim()
         .toLowerCase();
 
-    // 1. Explicitly filter out non-order / bulk / broadcast notification types
-    const nonOrderTypes = [
-      'bulk',
-      'broadcast',
-      'announcement',
-      'general',
-      'system',
-      'news',
-      'marketing',
-      'promo',
-      'promotion',
-      'info',
-      'informational',
-      'message',
-      'chat',
-      'admin',
-      'notice',
-      'maintenance',
-      'policy',
-    ];
-    if (nonOrderTypes.contains(type) ||
-        type.startsWith('bulk_') ||
-        type.startsWith('broadcast_') ||
-        type.startsWith('announcement_') ||
-        type.startsWith('promo_')) {
-      return false;
-    }
+    final orderType = (resolvedData['order_type'] ??
+            resolvedData['orderType'] ??
+            resolvedData['delivery_type'] ??
+            '')
+        .toString()
+        .trim()
+        .toLowerCase();
 
-    // 2. Check for explicit order type values
+    // 4. Check for explicit order type values (normal, courier, corporate)
     const orderTypes = [
       'new_order',
       'new_order_assigned',
@@ -211,37 +433,63 @@ class NotificationService {
       'delivery_assigned',
       'new_delivery_assigned',
       'courier_order',
+      'new_courier_order',
+      'courier_assigned',
+      'new_courier_assigned',
+      'courier_dispatch',
       'corporate_order',
+      'new_corporate_order',
+      'corporate_assigned',
+      'new_corporate_assigned',
+      'corporate_dispatch',
       'pickup_order',
       'order_request',
+      'normal_order',
+      'standard_order',
+      'delivery_order',
     ];
+
     if (orderTypes.contains(type) ||
         type == 'order' ||
         type == 'dispatch' ||
         type == 'job' ||
         type == 'trip' ||
+        type == 'courier' ||
+        type == 'corporate' ||
+        type == 'company' ||
         type.contains('order_assign') ||
         type.contains('new_order') ||
         type.contains('job_offer') ||
-        type.contains('dispatch_offer')) {
+        type.contains('dispatch_offer') ||
+        type.contains('courier_order') ||
+        type.contains('corporate_order')) {
       return true;
     }
 
-    // 3. Check for specific order identifier keys in payload
-    final hasOrderId = (resolvedData['order_id'] != null && resolvedData['order_id'].toString().trim().isNotEmpty) ||
-        (resolvedData['orderId'] != null && resolvedData['orderId'].toString().trim().isNotEmpty) ||
-        (resolvedData['order_number'] != null && resolvedData['order_number'].toString().trim().isNotEmpty) ||
-        (resolvedData['orderNumber'] != null && resolvedData['orderNumber'].toString().trim().isNotEmpty) ||
-        (resolvedData['delivery_id'] != null && resolvedData['delivery_id'].toString().trim().isNotEmpty) ||
-        (resolvedData['deliveryId'] != null && resolvedData['deliveryId'].toString().trim().isNotEmpty) ||
-        (resolvedData['job_id'] != null && resolvedData['job_id'].toString().trim().isNotEmpty) ||
-        (resolvedData['jobId'] != null && resolvedData['jobId'].toString().trim().isNotEmpty);
+    // 5. Check for orderType flag (corporate, courier, normal / delivery) with locations
+    if (orderType == 'courier' ||
+        orderType == 'courirer' ||
+        orderType == 'corporate' ||
+        orderType == 'company' ||
+        orderType == 'delivery' ||
+        orderType == 'normal' ||
+        orderType == 'standard' ||
+        orderType == 'pickup') {
+      final hasLocations = resolvedData.containsKey('pickup_name') ||
+          resolvedData.containsKey('pickup_address') ||
+          resolvedData.containsKey('dropoff_name') ||
+          resolvedData.containsKey('dropoff_address') ||
+          resolvedData.containsKey('from_latitude') ||
+          resolvedData.containsKey('customer_name') ||
+          resolvedData.containsKey('receiver_name') ||
+          resolvedData.containsKey('reciver_name');
 
-    if (hasOrderId) {
-      return true;
+      if (hasLocations) {
+        return true;
+      }
     }
 
-    // 4. Check for order details (pickup/dropoff combined with fare or order_type)
+    // 6. Check for order details (pickup/dropoff coordinates or addresses with fare)
     final hasFare = resolvedData.containsKey('fare') ||
         resolvedData.containsKey('fare_amount') ||
         resolvedData.containsKey('total_price') ||
@@ -251,44 +499,15 @@ class NotificationService {
         resolvedData.containsKey('dropoff_name') ||
         resolvedData.containsKey('dropoff_address') ||
         resolvedData.containsKey('from_latitude') ||
-        resolvedData.containsKey('customer_name');
-    final hasOrderTypeKey = resolvedData.containsKey('order_type') || resolvedData.containsKey('orderType');
+        resolvedData.containsKey('customer_name') ||
+        resolvedData.containsKey('receiver_name') ||
+        resolvedData.containsKey('reciver_name');
 
-    if ((hasFare && hasLocations) || (hasOrderTypeKey && hasLocations)) {
+    if (hasFare && hasLocations) {
       return true;
     }
 
-    // 5. Check text for explicit incoming order dispatch phrases (not generic "delivery" or "driver")
-    final effectiveTitle = title ?? resolvedData['title']?.toString() ?? '';
-    final effectiveBody = body ?? resolvedData['body']?.toString() ?? '';
-    final combinedText = '$effectiveTitle $effectiveBody'.toLowerCase();
-
-    if (combinedText.isNotEmpty) {
-      final orderPhrases = [
-        'incoming order',
-        'incoming delivery order',
-        'new order',
-        'order assigned',
-        'new job offer',
-        'job offer',
-        'new pickup request',
-        'pickup request',
-        'new delivery request',
-        'delivery request assigned',
-        'new delivery assigned',
-        'trip dispatch',
-        'order dispatch',
-        'new trip assigned',
-      ];
-
-      for (final phrase in orderPhrases) {
-        if (combinedText.contains(phrase)) {
-          return true;
-        }
-      }
-    }
-
-    // Payload contains no order information
+    // Payload contains no valid order information
     return false;
   }
 
@@ -592,9 +811,9 @@ class NotificationService {
     try {
       if (data.isEmpty) return;
 
-      // Validate that payload represents an actual order before presenting offer or ringing
-      if (!isOrderNotification(data)) {
-        Logger().i('ℹ️ Skipping incoming job offer: payload does not contain order information');
+      // Validate that payload represents an actual order (and is not promotional)
+      if (isPromotionNotification(data) || !isOrderNotification(data)) {
+        Logger().i('ℹ️ Skipping incoming job offer: payload is promotional or does not contain order information');
         return;
       }
 
@@ -709,9 +928,8 @@ class NotificationService {
     Future.delayed(const Duration(milliseconds: 1200), tryTrigger);
   }
 
-  /// Initialize Awesome Notifications and Firebase Messaging
-  Future<void> initialize() async {
-    // 1. Initialize Awesome Notifications
+  /// Ensures AwesomeNotifications channels are initialized (safe for both main & background isolates)
+  static Future<void> ensureAwesomeNotificationsInitialized() async {
     await AwesomeNotifications().initialize(
       'resource://drawable/res_app_icon',
       [
@@ -744,6 +962,22 @@ class NotificationService {
           defaultRingtoneType: DefaultRingtoneType.Ringtone,
           criticalAlerts: true,
         ),
+        // Dedicated channel for promotions and marketing offers (standard notification sound, NO ringtone)
+        NotificationChannel(
+          channelGroupKey: channelGroupKey,
+          channelKey: promoChannelKey,
+          channelName: 'Promotions & Offers',
+          channelDescription: 'Promotional deals, driver incentives, discount campaigns, and special offers.',
+          defaultColor: const Color(0xFF1E88E5),
+          ledColor: Colors.white,
+          importance: NotificationImportance.Default,
+          channelShowBadge: true,
+          playSound: true,
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([0, 250, 250, 250]),
+          defaultRingtoneType: DefaultRingtoneType.Notification,
+          criticalAlerts: false,
+        ),
         // General driver updates, announcements, and status notifications
         NotificationChannel(
           channelGroupKey: channelGroupKey,
@@ -769,6 +1003,12 @@ class NotificationService {
       ],
       debug: false,
     );
+  }
+
+  /// Initialize Awesome Notifications and Firebase Messaging
+  Future<void> initialize() async {
+    // 1. Initialize Awesome Notifications with all dedicated channels
+    await ensureAwesomeNotificationsInitialized();
 
     // Initialize Order Alert Service (ringtone & vibration preferences)
     await OrderAlertService.instance.initialize();
@@ -790,63 +1030,79 @@ class NotificationService {
         final rawTitle = message.notification?.title ?? message.data['title']?.toString();
         final rawBody = message.notification?.body ?? message.data['body']?.toString();
         final isOrder = isOrderNotification(message.data, rawTitle, rawBody);
+        final isPromo = isPromotionNotification(message.data, rawTitle, rawBody);
 
-        final title = rawTitle ?? (isOrder ? 'Delivery Alert' : 'AMN Driver Notification');
-        final body = rawBody ?? (isOrder ? 'New delivery notification received.' : 'New notification received.');
+        final title = rawTitle ?? (isOrder ? 'Delivery Alert' : (isPromo ? 'AMN Special Promotion' : 'AMN Driver Notification'));
+        final body = rawBody ?? (isOrder ? 'New delivery notification received.' : (isPromo ? 'Check out the latest promotion.' : 'New notification received.'));
+
+        // If promotional or non-order: display on default notification sound channel, NEVER ring or show order sheet
+        if (isPromo || !isOrder) {
+          final targetChannel = isPromo ? promoChannelKey : channelKey;
+          final payloadMap = Map<String, String>.from(
+            message.data.map((k, v) => MapEntry(k, v.toString())),
+          );
+
+          AwesomeNotifications().createNotification(
+            content: NotificationContent(
+              id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+              channelKey: targetChannel,
+              title: title,
+              body: body,
+              category: NotificationCategory.Message,
+              wakeUpScreen: false,
+              fullScreenIntent: false,
+              payload: payloadMap,
+              notificationLayout: NotificationLayout.Default,
+            ),
+          );
+          return;
+        }
 
         // Suppress foreground order notification if driver is offline or has an active order in progress
         final isOnline = StorageConfig.getIsOnline();
         final hasActiveOrder = StorageConfig.hasActiveOrder();
-        if (isOrder && (!isOnline || hasActiveOrder)) {
+        if (!isOnline || hasActiveOrder) {
           _logger.i('🔇 Suppressing foreground order alert: isOnline=$isOnline, hasActiveOrder=$hasActiveOrder');
           return;
         }
 
-        final targetChannel = isOrder ? orderAlertChannelKey : channelKey;
-
         final payloadMap = Map<String, String>.from(
           message.data.map((k, v) => MapEntry(k, v.toString())),
         );
-        if (isOrder) {
-          final sentTimeMs = message.sentTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
-          payloadMap.putIfAbsent('received_at', () => sentTimeMs.toString());
-          payloadMap.putIfAbsent('duration_seconds', () => '120');
-        }
+        final sentTimeMs = message.sentTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
+        payloadMap.putIfAbsent('received_at', () => sentTimeMs.toString());
+        payloadMap.putIfAbsent('duration_seconds', () => '120');
 
         AwesomeNotifications().createNotification(
           content: NotificationContent(
             id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-            channelKey: targetChannel,
+            channelKey: orderAlertChannelKey,
             title: title,
             body: body,
-            category: isOrder ? NotificationCategory.Call : NotificationCategory.Message,
-            wakeUpScreen: isOrder,
-            fullScreenIntent: isOrder,
+            category: NotificationCategory.Call,
+            wakeUpScreen: true,
+            fullScreenIntent: true,
             payload: payloadMap,
             notificationLayout: NotificationLayout.Default,
           ),
-          actionButtons: isOrder
-              ? [
-                  NotificationActionButton(
-                    key: 'ACCEPT_ORDER',
-                    label: 'Accept Order',
-                    actionType: ActionType.Default,
-                    color: const Color(0xFF1E88E5),
-                  ),
-                  NotificationActionButton(
-                    key: 'DISMISS_ORDER',
-                    label: 'Dismiss',
-                    actionType: ActionType.DismissAction,
-                    isDangerousOption: true,
-                  ),
-                ]
-              : null,
+          actionButtons: [
+            NotificationActionButton(
+              key: 'ACCEPT_ORDER',
+              label: 'Accept Order',
+              actionType: ActionType.Default,
+              color: const Color(0xFF1E88E5),
+            ),
+            NotificationActionButton(
+              key: 'DISMISS_ORDER',
+              label: 'Dismiss',
+              actionType: ActionType.DismissAction,
+              isDangerousOption: true,
+            ),
+          ],
         );
 
-        // Immediately trigger Incoming Job Offer Sheet ONLY IF this is an incoming order!
-        if (isOrder) {
-          dispatchIncomingOffer(payloadMap);
-        }
+        // Immediately trigger Incoming Job Offer Sheet & Ringtone ONLY for active order dispatches!
+        dispatchIncomingOffer(payloadMap);
       });
 
       // Background / Inactive app opened via FCM notification tap
@@ -854,7 +1110,7 @@ class NotificationService {
         _logger.i('📱 FCM Message Opened App (from background/inactive): ${message.data}');
         final title = message.notification?.title ?? message.data['title']?.toString();
         final body = message.notification?.body ?? message.data['body']?.toString();
-        if (isOrderNotification(message.data, title, body)) {
+        if (isOrderNotification(message.data, title, body) && !isPromotionNotification(message.data, title, body)) {
           final payloadMap = Map<String, dynamic>.from(message.data);
           final sentTimeMs = message.sentTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
           payloadMap.putIfAbsent('received_at', () => sentTimeMs);
@@ -869,7 +1125,7 @@ class NotificationService {
           _logger.i('🚀 App cold-started from FCM notification: ${initialMessage.data}');
           final title = initialMessage.notification?.title ?? initialMessage.data['title']?.toString();
           final body = initialMessage.notification?.body ?? initialMessage.data['body']?.toString();
-          if (isOrderNotification(initialMessage.data, title, body)) {
+          if (isOrderNotification(initialMessage.data, title, body) && !isPromotionNotification(initialMessage.data, title, body)) {
             final payloadMap = Map<String, dynamic>.from(initialMessage.data);
             final sentTimeMs = initialMessage.sentTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
             payloadMap.putIfAbsent('received_at', () => sentTimeMs);
@@ -893,7 +1149,7 @@ class NotificationService {
       final initialAction = await AwesomeNotifications().getInitialNotificationAction();
       if (initialAction != null && initialAction.payload != null && initialAction.payload!.isNotEmpty) {
         _logger.i('🚀 App cold-started from AwesomeNotification action: ${initialAction.payload}');
-        if (isOrderNotification(initialAction.payload!)) {
+        if (isOrderNotification(initialAction.payload!) && !isPromotionNotification(initialAction.payload!)) {
           dispatchIncomingOffer(initialAction.payload!);
         }
       }
@@ -1031,12 +1287,38 @@ class NotificationService {
     }
   }
 
+  /// Retrieves and dispatches any incoming order offer saved while the app was in the background
+  static Future<void> checkPendingOfferFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('driver_pending_order_payload');
+      if (raw != null && raw.isNotEmpty) {
+        await prefs.remove('driver_pending_order_payload');
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          final map = Map<String, dynamic>.from(decoded);
+          if (isOrderNotification(map) && !isPromotionNotification(map)) {
+            dispatchIncomingOffer(map);
+          }
+        }
+      }
+    } catch (e) {
+      Logger().w('Notice checking pending offer from storage: $e');
+    }
+  }
+
   // Action callback hooks required by Awesome Notifications v0.10+
   @pragma("vm:entry-point")
   static Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
     Logger().i('👆 Notification tapped / action pressed [${receivedAction.buttonKeyPressed}]: ${receivedAction.payload}');
     // Immediately silence ringtone and vibration when user acts on notification
     await OrderAlertService.instance.stopRinging();
+
+    // Clear any pending order from prefs
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('driver_pending_order_payload');
+    } catch (_) {}
 
     if (receivedAction.buttonKeyPressed == 'DISMISS_ORDER') {
       if (Get.isRegistered<DriverDashboardController>()) {
@@ -1046,7 +1328,10 @@ class NotificationService {
     }
 
     if (receivedAction.buttonKeyPressed == 'ACCEPT_ORDER') {
-      if (receivedAction.payload != null && receivedAction.payload!.isNotEmpty && isOrderNotification(receivedAction.payload!)) {
+      if (receivedAction.payload != null &&
+          receivedAction.payload!.isNotEmpty &&
+          isOrderNotification(receivedAction.payload!) &&
+          !isPromotionNotification(receivedAction.payload!)) {
         dispatchIncomingOffer(receivedAction.payload!);
       }
       if (Get.isRegistered<DriverDashboardController>()) {
@@ -1055,7 +1340,10 @@ class NotificationService {
       return;
     }
 
-    if (receivedAction.payload != null && receivedAction.payload!.isNotEmpty && isOrderNotification(receivedAction.payload!)) {
+    if (receivedAction.payload != null &&
+        receivedAction.payload!.isNotEmpty &&
+        isOrderNotification(receivedAction.payload!) &&
+        !isPromotionNotification(receivedAction.payload!)) {
       dispatchIncomingOffer(receivedAction.payload!);
     }
   }
@@ -1075,6 +1363,10 @@ class NotificationService {
     Logger().d('Notification dismissed: ${receivedAction.id}');
     // Silence alert if notification is swiped away
     await OrderAlertService.instance.stopRinging();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('driver_pending_order_payload');
+    } catch (_) {}
     if (Get.isRegistered<DriverDashboardController>()) {
       Get.find<DriverDashboardController>().dismissIncomingOffer();
     }
