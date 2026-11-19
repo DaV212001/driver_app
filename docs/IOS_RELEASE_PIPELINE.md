@@ -106,6 +106,15 @@ Configure these secrets in the GitHub repository (`https://github.com/DaV212001/
   - `ios/Flutter/Release.xcconfig` sets `CODE_SIGN_STYLE = Manual`, `DEVELOPMENT_TEAM = T6N9PJTZS6`, `CODE_SIGN_IDENTITY = Apple Distribution`, and `PROVISIONING_PROFILE_SPECIFIER = AMN Driver`.
   - The workflow creates a temporary keychain, sets it as the default keychain, imports the certificate with partition keys, and copies the provisioning profile by both UUID and name.
 
+### E. Swift Bridging Headers with Module Interfaces (`BUILD_LIBRARY_FOR_DISTRIBUTION`)
+* **Issue**: During `flutter build ipa`, Xcode failed with:
+  `Swift Compiler Error (Xcode): Using bridging headers with module interfaces is unsupported`.
+  In Swift, emitting a binary module interface (`.swiftinterface` via `BUILD_LIBRARY_FOR_DISTRIBUTION = YES`) is strictly incompatible with an Objective-C bridging header (`Runner-Bridging-Header.h`).
+* **Resolution**: Explicitly enforce `BUILD_LIBRARY_FOR_DISTRIBUTION = NO` across:
+  1. `ios/Flutter/Release.xcconfig` (`BUILD_LIBRARY_FOR_DISTRIBUTION = NO`).
+  2. `ios/Runner.xcodeproj/project.pbxproj` under both the project-level and `Runner` target-level configurations (`Release`, `Profile`, `Debug`).
+  3. `ios/Podfile` post_install hooks for both `installer.pods_project.targets` and `installer.aggregate_targets` (user_project).
+
 ---
 
 ## 5. Releasing from Windows (CLI Guide)
