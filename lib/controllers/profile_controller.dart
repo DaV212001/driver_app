@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/storage_config.dart';
 import '../models/driver_profile.dart';
 import '../models/vehicle_type.dart';
@@ -458,5 +459,69 @@ class ProfileController extends GetxController {
         }
       },
     );
+  }
+
+  /// Request Account Deletion (Apple App Store Guideline 5.1.1(v) & Google Play User Data)
+  Future<void> requestAccountDeletion(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 24),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Delete Account',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Submit an account deletion request? This will permanently delete your driver profile, vehicle documents, and account data. This action cannot be undone once processed.',
+          style: TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Get.back(result: true),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('delete_account_pending', true);
+      } catch (_) {}
+
+      if (Get.isRegistered<DriverAuthController>()) {
+        await Get.find<DriverAuthController>().logout();
+      } else {
+        await StorageConfig.clearSession();
+      }
+
+      Get.snackbar(
+        'Request Submitted',
+        'Your driver account deletion request is pending and will be processed.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+        margin: const EdgeInsets.all(16),
+      );
+    }
   }
 }

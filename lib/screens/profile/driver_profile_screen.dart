@@ -652,6 +652,29 @@ class DriverProfileScreen extends StatelessWidget {
                       ),
                       const Divider(height: 1),
 
+                      // Account Deletion Tile (Apple App Store Guideline 5.1.1(v) & Google Play User Data)
+                      ListTile(
+                        leading: const Icon(Icons.delete_forever_rounded, color: AppColors.error),
+                        title: AutoSizeText(
+                          'Delete Account',
+                          maxLines: 1,
+                          minFontSize: 11,
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.error,
+                          ),
+                        ),
+                        subtitle: AutoSizeText(
+                          'Permanently remove your driver account and data',
+                          maxLines: 1,
+                          minFontSize: 9,
+                          style: textTheme.bodySmall?.copyWith(fontSize: 11),
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.error),
+                        onTap: () => controller.requestAccountDeletion(context),
+                      ),
+
                       // Auto-accept toggle
                       // SwitchListTile(
                       //   contentPadding:
