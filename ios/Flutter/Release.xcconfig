@@ -1,1 +1,7 @@
 #include "Generated.xcconfig"
+
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM = T6N9PJTZS6
+PROVISIONING_PROFILE_SPECIFIER = AMN Driver
+CODE_SIGN_IDENTITY = Apple Distribution
+CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Distribution

@@ -56,3 +56,13 @@ key.properties
 *service-account*.json
 *play-service-account*.json
 secrets/
+
+# iOS signing credentials
+*.p12
+*.p8
+*.mobileprovision
+ios/ExportOptions.plist
+
+# Media files
+*.mp4
+*.mov

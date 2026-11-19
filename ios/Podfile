@@ -1,5 +1,3 @@
-source 'https://github.com/CocoaPods/Specs.git'
-
 # Minimum platform target for modern Firebase & Gebeta GL MapLibre
 platform :ios, '15.6'
 
@@ -44,6 +42,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.6'
       config.build_settings['TARGETED_DEVICE_FAMILY'] = '1'
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
     end
   end
 
