@@ -45,4 +45,17 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.6'
     end
   end
+
+  # Auto-patch device_info_plus isiOSAppOnVision compatibility for Xcode SDKs < 16.2
+  pub_cache_files = Dir.glob(File.expand_path('~/.pub-cache/hosted/pub.dev/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m'))
+  sandbox_files = Dir.glob(File.join(installer.sandbox.root, '**/FPPDeviceInfoPlusPlugin.m'))
+  (pub_cache_files + sandbox_files).uniq.each do |file_path|
+    if File.exist?(file_path)
+      content = File.read(file_path)
+      if content.include?('isiOSAppOnVision') && !content.include?('VisionCompatibilityPatch')
+        patch = "#ifndef VisionCompatibilityPatch\n#define VisionCompatibilityPatch\n@interface NSProcessInfo (VisionCompatibilityPatch)\n- (BOOL)isiOSAppOnVision;\n@end\n#endif\n"
+        File.write(file_path, patch + content)
+      end
+    end
+  end
 end
