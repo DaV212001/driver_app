@@ -131,7 +131,8 @@ class ActiveDeliveryController extends GetxController {
     _initSocketTracking(task);
 
     // Refresh full task details in background to ensure latest sender/receiver contacts & coordinates
-    if (!Get.testMode && !Platform.environment.containsKey('FLUTTER_TEST')) {
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    if (!inTest) {
       refreshTaskDetails();
     }
   }
@@ -155,7 +156,8 @@ class ActiveDeliveryController extends GetxController {
   }
 
   void _initSocketTracking(DeliveryTask task) {
-    if (Get.testMode || Platform.environment.containsKey('FLUTTER_TEST')) return;
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    if (inTest) return;
     final orderId = _extractOrderId(task);
     // Start streaming immediately so GPS fixes are active and ready
     startLocationStreaming(orderId);
@@ -215,7 +217,8 @@ class ActiveDeliveryController extends GetxController {
   }
 
   void startLocationStreaming(String orderId) {
-    if (Get.testMode || Platform.environment.containsKey('FLUTTER_TEST')) return;
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    if (inTest) return;
     _locationTimer?.cancel();
     _positionSubscription?.cancel();
 

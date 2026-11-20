@@ -23,6 +23,7 @@ import '../utils/location_utils.dart';
 import 'active_delivery_controller.dart';
 import 'earnings_controller.dart';
 import 'profile_controller.dart';
+import '../screens/main_driver_navigation.dart';
 
 class DriverDashboardController extends GetxController with WidgetsBindingObserver {
   final Rx<DriverProfile> profile = DriverProfile.fromStorage().obs;
@@ -87,7 +88,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     if (storedDriverId != null && storedDriverId.isNotEmpty) {
       fetchDashboardMetrics();
     }
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (!inTest && StorageConfig.isLoggedIn()) {
       GebetaLocationService.ensureLocationPermission();
     }
@@ -99,7 +100,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     _offerTimer?.cancel();
     _simulationTimer?.cancel();
     OrderAlertService.instance.stopRinging();
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (!inTest) {
       NotificationService.instance.removeOnlinePersistentNotification();
     }
@@ -160,7 +161,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
   void loadDashboardData() {
     syncProfileFromStorage();
     isOnline.value = StorageConfig.getIsOnline();
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (isOnline.value && !inTest) {
       NotificationService.instance.showOnlinePersistentNotification();
     }
@@ -181,7 +182,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
   /// Sets driver online status and synchronizes with backend API
   /// POST /driver/{driver_id}/update-online with body: {"online": 1 | 0}
   Future<bool> setOnlineStatus(bool targetStatus, {bool showSnackbar = true}) async {
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
 
     // When going online, ensure location permission has been granted with prominent disclosure
     if (targetStatus && !inTest) {
@@ -330,7 +331,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     // Ring phone sound and vibrate for incoming order
     OrderAlertService.instance.startRinging();
 
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (!inTest) {
       _offerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         final current = incomingOffer.value;
@@ -356,7 +357,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
 
     // Immediately report battery level when driver lets offer pass or times out
     // Validates against excuses such as "my battery shut down"
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (!inTest && Get.isRegistered<DriverBatteryService>()) {
       DriverBatteryService.to.sendBatteryPercent(
         reason: isTimeout ? 'offer_timeout' : 'offer_passed',
@@ -440,7 +441,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
       Get.find<ActiveDeliveryController>().setActiveTask(newTask);
     }
 
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
 
     // Call backend API and trigger socket room join & status update
     if (cleanOrderId.isNotEmpty && !inTest) {
@@ -661,8 +662,13 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     }
 
     // Lead driver immediately to the order detail screen and clear backstack to lock driver to this order
-    if (!Get.testMode && !Platform.environment.containsKey('FLUTTER_TEST')) {
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    if (!inTest) {
       Get.offAllNamed(Pages.orderDetail, arguments: task);
+    } else {
+      if (Get.isRegistered<MainDriverNavigationController>()) {
+        Get.find<MainDriverNavigationController>().selectedIndex.value = 2;
+      }
     }
   }
 
@@ -681,7 +687,7 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     final storedDriverId = StorageConfig.getDriverId();
     if (storedDriverId == null || storedDriverId.isEmpty) return;
 
-    final inTest = Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (inTest && !DioConfig.isTestMode) {
       return;
     }

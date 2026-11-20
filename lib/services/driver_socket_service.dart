@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import '../config/storage_config.dart';
 import '../constants/constants.dart';
+import 'notification_service.dart';
 
 class DriverSocketService extends GetxService {
   static DriverSocketService get to => Get.find<DriverSocketService>();
@@ -24,7 +25,9 @@ class DriverSocketService extends GetxService {
   bool isTestMode = false;
 
   static bool get isInTest =>
-      Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+      NotificationService.skipPermissionRequest ||
+      Get.testMode ||
+      Platform.environment.containsKey('FLUTTER_TEST');
 
   @override
   void onInit() {
@@ -147,7 +150,7 @@ class DriverSocketService extends GetxService {
       StorageConfig.setActiveOrderType(orderType);
     }
 
-    if (isTestMode || Get.testMode) {
+    if (isTestMode || isInTest) {
       isCustomerOnline.value = true;
       onResult?.call(true);
       return;
@@ -172,7 +175,7 @@ class DriverSocketService extends GetxService {
   }
 
   void _performJoinOrder(String orderId, {String? orderType, Function(bool success)? onResult, int attempt = 0}) {
-    if (isTestMode || Get.testMode) {
+    if (isTestMode || isInTest) {
       isCustomerOnline.value = true;
       onResult?.call(true);
       return;
@@ -251,7 +254,7 @@ class DriverSocketService extends GetxService {
     lastLongitude = longitude;
     lastHeading = heading;
 
-    if (isTestMode || Get.testMode) {
+    if (isTestMode || isInTest) {
       lastLocationSentAt.value = DateTime.now();
       return;
     }

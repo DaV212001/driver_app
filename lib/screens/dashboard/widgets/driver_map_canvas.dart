@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/gebeta_route.dart';
 import '../../../services/driver_location_update_service.dart';
 import '../../../services/gebeta_location_service.dart';
+import '../../../services/notification_service.dart';
 
 class DriverMapCanvas extends StatefulWidget {
   final bool isOnline;
@@ -203,12 +204,15 @@ class _DriverMapCanvasState extends State<DriverMapCanvas> {
   }
 
   void _onStyleLoaded() async {
+    final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (_canUseNativeMap && _mapController != null) {
-      final hasPerm = await GebetaLocationService.ensureLocationPermission();
-      if (hasPerm && _mapController != null) {
-        try {
-          await _mapController!.updateMyLocationTrackingMode(MyLocationTrackingMode.tracking);
-        } catch (_) {}
+      if (!inTest) {
+        final hasPerm = await GebetaLocationService.ensureLocationPermission();
+        if (hasPerm && _mapController != null) {
+          try {
+            await _mapController!.updateMyLocationTrackingMode(MyLocationTrackingMode.tracking);
+          } catch (_) {}
+        }
       }
       if (_currentLocation != null) {
         _applyLocationUpdate(_currentLocation!, animateCamera: false);
@@ -473,10 +477,12 @@ class _DriverMapCanvasState extends State<DriverMapCanvas> {
                   ),
                   onMapCreated: _onMapCreated,
                   onStyleLoadedCallback: _onStyleLoaded,
-                  myLocationEnabled: true,
-                  myLocationTrackingMode: _isCameraTrackingUser
-                      ? MyLocationTrackingMode.tracking
-                      : MyLocationTrackingMode.none,
+                  myLocationEnabled: !(NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST')),
+                  myLocationTrackingMode: (NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST'))
+                      ? MyLocationTrackingMode.none
+                      : (_isCameraTrackingUser
+                          ? MyLocationTrackingMode.tracking
+                          : MyLocationTrackingMode.none),
                   myLocationRenderMode: MyLocationRenderMode.normal,
                   onUserLocationUpdated: (UserLocation loc) {
                     if (mounted) {

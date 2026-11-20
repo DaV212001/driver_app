@@ -63,6 +63,9 @@ void main() {
         waitCount++;
       }
 
+      // Activate testMode for GetX after login navigation has settled
+      Get.testMode = true;
+
       // 3. Showcase Authenticated Driver Dashboard
       await Future.delayed(const Duration(seconds: 3));
       await tester.pumpAndSettle();

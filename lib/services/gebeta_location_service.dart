@@ -142,7 +142,7 @@ class GebetaLocationService {
     if (!StorageConfig.isLoggedIn()) {
       return null;
     }
-    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+    if (kIsWeb || NotificationService.skipPermissionRequest || (!Platform.isAndroid && !Platform.isIOS)) {
       return Position(
         latitude: 9.0209,
         longitude: 38.7469,

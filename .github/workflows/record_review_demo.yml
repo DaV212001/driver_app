@@ -79,17 +79,32 @@ jobs:
             --batteryState "charged" \
             --batteryLevel 100
 
+      - name: Pre-build & Pre-grant Simulator Permissions
+        run: |
+          UDID="${{ steps.boot-sim.outputs.sim_udid }}"
+          echo "Pre-building iOS simulator app..."
+          flutter build ios --simulator --no-codesign
+
+          echo "Installing Runner.app onto simulator $UDID..."
+          xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
+
+          echo "Pre-granting ALL privacy permissions to com.amn.driverApp..."
+          xcrun simctl privacy "$UDID" grant all com.amn.driverApp || true
+          xcrun simctl privacy "$UDID" grant location com.amn.driverApp || true
+          xcrun simctl privacy "$UDID" grant location-always com.amn.driverApp || true
+          xcrun simctl privacy "$UDID" grant photos com.amn.driverApp || true
+          xcrun simctl privacy "$UDID" grant camera com.amn.driverApp || true
+
       - name: Run Integration Test & Record Screen
         run: |
           UDID="${{ steps.boot-sim.outputs.sim_udid }}"
           RAW_VIDEO="/tmp/raw_demo.mp4"
 
-          # Pre-grant location privacy to avoid native iOS authorization popups
+          # Re-affirm privacy permissions
           xcrun simctl privacy "$UDID" grant location-always com.amn.driverApp || true
           xcrun simctl privacy "$UDID" grant location com.amn.driverApp || true
 
           # Background watcher: wait until the app actually launches on the simulator before starting recording
-          # This prevents recording the 5-10 minute Xcode compilation time!
           (
             echo "Recording daemon: Waiting for AMN Driver app to launch on simulator..."
             while ! xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "com.amn.driverApp" && ! pgrep -f "Runner.app/Runner" >/dev/null 2>&1; do
@@ -107,7 +122,7 @@ jobs:
           TEST_EXIT_CODE=$?
           set -e
 
-          echo "Test finished with exit code: $TEST_EXIT_CODE. Stopping recording..."
+          echo "Test finished with exit code: $TEST_EXIT_CODE. Stopping recorder..."
           kill -INT $(pgrep -f "recordVideo") 2>/dev/null || true
           kill -INT "$DAEMON_PID" 2>/dev/null || true
           sleep 4
