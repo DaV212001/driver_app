@@ -24,7 +24,9 @@ import 'profile_controller.dart';
 class DriverAuthController extends GetxController {
   static DriverAuthController get to => Get.find<DriverAuthController>();
   static bool get isInTest =>
-      Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+      NotificationService.skipPermissionRequest ||
+      Get.testMode ||
+      Platform.environment.containsKey('FLUTTER_TEST');
 
   final RxBool _isLoggedIn = false.obs;
   bool get isLoggedIn => _isLoggedIn.value;
@@ -93,7 +95,7 @@ class DriverAuthController extends GetxController {
   Timer? _cooldownTimer;
 
   void _safeNavigate(void Function() action) {
-    if (!Get.testMode && (Get.context != null || Get.key.currentState != null)) {
+    if (Get.context != null || Get.key.currentState != null) {
       try {
         action();
       } catch (_) {}

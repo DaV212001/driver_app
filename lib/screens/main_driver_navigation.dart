@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../config/storage_config.dart';
 import '../controllers/earnings_controller.dart';
+import '../services/notification_service.dart';
 import 'dashboard/driver_dashboard_screen.dart';
 import 'earnings/earnings_screen.dart';
 import 'profile/driver_profile_screen.dart';
@@ -13,7 +14,8 @@ class MainDriverNavigationController extends GetxController {
 
   void setIndex(int index) {
     if (StorageConfig.hasActiveOrder()) {
-      if (!Get.testMode && !Platform.environment.containsKey('FLUTTER_TEST')) {
+      final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
+      if (!inTest) {
         Get.snackbar(
           'Order in Progress 🔒',
           'Please complete your active delivery before navigating away.',
@@ -21,8 +23,8 @@ class MainDriverNavigationController extends GetxController {
           backgroundColor: const Color(0xFF1E293B),
           colorText: Colors.white,
         );
+        return;
       }
-      return;
     }
     selectedIndex.value = index;
     if (index == 1 && Get.isRegistered<EarningsController>()) {

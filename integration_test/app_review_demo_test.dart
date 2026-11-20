@@ -43,6 +43,10 @@ void main() {
         await tester.enterText(textFields.at(1), '1234');
         await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
+        // Dismiss keyboard so full screen and submit button are visible
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+
         await Future.delayed(const Duration(seconds: 1));
 
         // Tap Sign In button
@@ -57,14 +61,16 @@ void main() {
 
       // Wait for live authentication with AMN backend (api.amnplc.com)
       int waitCount = 0;
-      while (!StorageConfig.isLoggedIn() && waitCount < 15) {
+      while (!StorageConfig.isLoggedIn() && waitCount < 30) {
         await tester.pump(const Duration(milliseconds: 500));
         await Future.delayed(const Duration(milliseconds: 500));
         waitCount++;
       }
 
-      // Activate testMode for GetX after login navigation has settled
-      Get.testMode = true;
+      // Allow navigation transition to MainDriverNavigation to settle
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
 
       // 3. Showcase Authenticated Driver Dashboard
       await Future.delayed(const Duration(seconds: 3));
@@ -138,15 +144,19 @@ void main() {
       // 10. Showcase prominent Account Deletion capability
       try {
         final deleteAccountFinder = find.text('Delete Account');
-        final scrollableFinder = find.byType(Scrollable);
-        if (scrollableFinder.evaluate().isNotEmpty) {
-          await tester.scrollUntilVisible(
-            deleteAccountFinder,
-            150,
-            scrollable: scrollableFinder.first,
-          );
+        if (deleteAccountFinder.evaluate().isNotEmpty) {
+          await tester.ensureVisible(deleteAccountFinder);
           await tester.pumpAndSettle();
-          await Future.delayed(const Duration(seconds: 1));
+        } else {
+          final scrollableFinder = find.byType(Scrollable);
+          if (scrollableFinder.evaluate().isNotEmpty) {
+            await tester.scrollUntilVisible(
+              deleteAccountFinder,
+              150,
+              scrollable: scrollableFinder.last,
+            );
+            await tester.pumpAndSettle();
+          }
         }
 
         if (deleteAccountFinder.evaluate().isNotEmpty) {

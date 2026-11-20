@@ -1,4 +1,5 @@
 # Miscellaneous
+review_artifacts/
 *.class
 *.log
 *.pyc
