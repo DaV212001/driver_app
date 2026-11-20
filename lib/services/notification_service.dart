@@ -151,6 +151,9 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
+  /// Flag to skip permission prompts during automated integration tests / review demos
+  static bool skipPermissionRequest = false;
+
   final Logger _logger = Logger();
   
   Dio? customDio;
@@ -1188,10 +1191,16 @@ class NotificationService {
 
   /// Request permissions for both Awesome Notifications and FCM
   Future<void> requestPermissions() async {
+    if (skipPermissionRequest) {
+      _logger.i('Skipping notification permission requests (demo/test mode)');
+      return;
+    }
     try {
       final isAllowed = await AwesomeNotifications().isNotificationAllowed();
       if (!isAllowed) {
-        await AwesomeNotifications().requestPermissionToSendNotifications();
+        if (!skipPermissionRequest) {
+          await AwesomeNotifications().requestPermissionToSendNotifications();
+        }
       }
 
       if (Firebase.apps.isNotEmpty) {
@@ -1252,7 +1261,9 @@ class NotificationService {
     try {
       final isAllowed = await AwesomeNotifications().isNotificationAllowed();
       if (!isAllowed) {
-        await AwesomeNotifications().requestPermissionToSendNotifications();
+        if (!skipPermissionRequest) {
+          await AwesomeNotifications().requestPermissionToSendNotifications();
+        }
       }
 
       await AwesomeNotifications().createNotification(

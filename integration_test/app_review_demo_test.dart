@@ -9,6 +9,7 @@ import 'package:driver_app/controllers/driver_dashboard_controller.dart';
 import 'package:driver_app/controllers/active_delivery_controller.dart';
 import 'package:driver_app/models/incoming_job_offer.dart';
 import 'package:driver_app/screens/main_driver_navigation.dart';
+import 'package:driver_app/services/notification_service.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -19,13 +20,15 @@ void main() {
       // 1. Clear previous sessions for a clean start at login
       await StorageConfig.init();
       await StorageConfig.clearSession();
+      await StorageConfig.setLocationDisclosureAgreed(true);
+      NotificationService.skipPermissionRequest = true;
 
       // Launch the application
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
       // Allow splash & landing to settle
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 3));
       await tester.pumpAndSettle();
 
       // 2. Perform Login with verified Demo Driver credentials

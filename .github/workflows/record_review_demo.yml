@@ -84,10 +84,22 @@ jobs:
           UDID="${{ steps.boot-sim.outputs.sim_udid }}"
           RAW_VIDEO="/tmp/raw_demo.mp4"
 
-          echo "Starting screen recording on simulator $UDID..."
-          xcrun simctl io "$UDID" recordVideo --codec=h264 "$RAW_VIDEO" &
-          RECORDER_PID=$!
-          echo "Recorder running with PID: $RECORDER_PID"
+          # Pre-grant location privacy to avoid native iOS authorization popups
+          xcrun simctl privacy "$UDID" grant location-always com.amn.driverApp || true
+          xcrun simctl privacy "$UDID" grant location com.amn.driverApp || true
+
+          # Background watcher: wait until the app actually launches on the simulator before starting recording
+          # This prevents recording the 5-10 minute Xcode compilation time!
+          (
+            echo "Recording daemon: Waiting for AMN Driver app to launch on simulator..."
+            while ! xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "com.amn.driverApp" && ! pgrep -f "Runner.app/Runner" >/dev/null 2>&1; do
+              sleep 0.5
+            done
+            echo "AMN Driver App process detected! Starting screen recording NOW..."
+            xcrun simctl io "$UDID" recordVideo --codec=h264 "$RAW_VIDEO"
+          ) &
+          DAEMON_PID=$!
+          echo "Recorder daemon running with PID: $DAEMON_PID"
 
           echo "Running Flutter Integration Test..."
           set +e
@@ -95,17 +107,17 @@ jobs:
           TEST_EXIT_CODE=$?
           set -e
 
-          echo "Test finished with exit code: $TEST_EXIT_CODE. Stopping recorder..."
-          kill -INT "$RECORDER_PID" || true
-          wait "$RECORDER_PID" || true
-          sleep 3
+          echo "Test finished with exit code: $TEST_EXIT_CODE. Stopping recording..."
+          kill -INT $(pgrep -f "recordVideo") 2>/dev/null || true
+          kill -INT "$DAEMON_PID" 2>/dev/null || true
+          sleep 4
 
           if [ ! -f "$RAW_VIDEO" ]; then
             echo "Error: Video recording was not generated!"
             exit 1
           fi
 
-          echo "Raw video size: $(ls -lh "$RAW_VIDEO" | awk '{print $5}')"
+          echo "Raw video generated successfully! Size: $(ls -lh "$RAW_VIDEO" | awk '{print $5}')"
 
       - name: Finalize & Compress Demo Video (< 30 MB Guaranteed)
         run: |

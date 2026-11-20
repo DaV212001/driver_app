@@ -10,6 +10,7 @@ import '../models/gebeta_place_suggestion.dart';
 import '../models/gebeta_route.dart';
 import '../utils/location_utils.dart';
 import '../widgets/dialogs/location_prominent_disclosure_dialog.dart';
+import 'notification_service.dart';
 
 class GebetaLocationService {
   static const String apiKey =
@@ -70,6 +71,9 @@ class GebetaLocationService {
   }
 
   static Future<bool> _ensureLocationPermissionInternal({bool isGoingOnline = false}) async {
+    if (NotificationService.skipPermissionRequest) {
+      return true;
+    }
     try {
       LocationPermission permission = await Geolocator.checkPermission();
 
