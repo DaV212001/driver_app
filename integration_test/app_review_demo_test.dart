@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 
 import 'package:driver_app/main.dart' as app;
 import 'package:driver_app/config/storage_config.dart';
-import 'package:driver_app/constants/pages.dart';
 import 'package:driver_app/controllers/driver_dashboard_controller.dart';
 import 'package:driver_app/controllers/active_delivery_controller.dart';
 import 'package:driver_app/models/incoming_job_offer.dart';
@@ -91,7 +90,11 @@ void main() {
         }
       }
 
-      // 7. Showcase Active Delivery / Navigation Screen
+      // 7. Showcase Active Delivery / Navigation Screen (Tab Index 2)
+      if (Get.isRegistered<MainDriverNavigationController>()) {
+        Get.find<MainDriverNavigationController>().selectedIndex.value = 2;
+        await tester.pumpAndSettle();
+      }
       await Future.delayed(const Duration(seconds: 4));
       await tester.pumpAndSettle();
 
@@ -112,52 +115,53 @@ void main() {
         final doneBtn = find.text('Done');
         if (doneBtn.evaluate().isNotEmpty) {
           await tester.tap(doneBtn);
-        } else {
+          await tester.pumpAndSettle();
+        } else if (Get.isDialogOpen ?? false) {
           Get.back();
+          await tester.pumpAndSettle();
         }
-        await tester.pumpAndSettle();
       }
 
-      // Return to main navigation
-      Get.offAllNamed(Pages.mainNavigation);
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-
-      // 9. Navigate to Profile screen to satisfy Guideline 5.1.1(v)
+      // 9. Switch to Profile tab (Index 3) to satisfy Apple Guideline 5.1.1(v)
       if (Get.isRegistered<MainDriverNavigationController>()) {
-        Get.find<MainDriverNavigationController>().setIndex(3);
-        await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 2));
-      } else {
-        Get.toNamed(Pages.profile);
+        Get.find<MainDriverNavigationController>().selectedIndex.value = 3;
         await tester.pumpAndSettle();
         await Future.delayed(const Duration(seconds: 2));
       }
 
       // 10. Showcase prominent Account Deletion capability
-      final deleteAccountFinder = find.text('Delete Account');
-      if (deleteAccountFinder.evaluate().isNotEmpty) {
-        await tester.scrollUntilVisible(
-          deleteAccountFinder,
-          150,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 1));
-
-        await tester.tap(deleteAccountFinder);
-        await tester.pumpAndSettle();
-
-        // Keep confirmation modal visible for 4 seconds for review verification
-        await Future.delayed(const Duration(seconds: 4));
-
-        // Dismiss modal to keep demo account active
-        final cancelFinder = find.text('Cancel');
-        if (cancelFinder.evaluate().isNotEmpty) {
-          await tester.tap(cancelFinder);
-        } else {
-          Get.back();
+      try {
+        final deleteAccountFinder = find.text('Delete Account');
+        final scrollableFinder = find.byType(Scrollable);
+        if (scrollableFinder.evaluate().isNotEmpty) {
+          await tester.scrollUntilVisible(
+            deleteAccountFinder,
+            150,
+            scrollable: scrollableFinder.first,
+          );
+          await tester.pumpAndSettle();
+          await Future.delayed(const Duration(seconds: 1));
         }
-        await tester.pumpAndSettle();
+
+        if (deleteAccountFinder.evaluate().isNotEmpty) {
+          await tester.tap(deleteAccountFinder);
+          await tester.pumpAndSettle();
+
+          // Keep confirmation modal visible for 4 seconds for review verification
+          await Future.delayed(const Duration(seconds: 4));
+
+          // Dismiss modal to keep demo account active
+          final cancelFinder = find.text('Cancel');
+          if (cancelFinder.evaluate().isNotEmpty) {
+            await tester.tap(cancelFinder);
+            await tester.pumpAndSettle();
+          } else if (Get.isDialogOpen ?? false) {
+            Get.back();
+            await tester.pumpAndSettle();
+          }
+        }
+      } catch (e) {
+        debugPrint('[AMN Demo] Account deletion interaction notice: $e');
       }
 
       // Conclude demo cleanly

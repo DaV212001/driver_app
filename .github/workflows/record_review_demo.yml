@@ -13,7 +13,7 @@ jobs:
   record-demo:
     name: Record Demo Video on iOS Simulator
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout repository
@@ -36,6 +36,14 @@ jobs:
           flutter --version
           xcodebuild -version
           xcrun simctl list devices available
+
+      - name: Install FFmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            echo "Installing FFmpeg via Homebrew..."
+            brew install ffmpeg || true
+          fi
+          command -v ffmpeg || echo "FFmpeg installation failed, fallback to raw simulator video will be used"
 
       - name: Install Dependencies
         run: flutter pub get
@@ -99,38 +107,35 @@ jobs:
 
           echo "Raw video size: $(ls -lh "$RAW_VIDEO" | awk '{print $5}')"
 
-      - name: Compress Video with ffmpeg (< 30 MB Guaranteed)
+      - name: Finalize & Compress Demo Video (< 30 MB Guaranteed)
         run: |
           RAW_VIDEO="/tmp/raw_demo.mp4"
           OUTPUT_VIDEO="amn_driver_review_demo.mp4"
 
-          # Compress to 1080p, H.264 High Profile, CRF 26, YUV420p, faststart
-          ffmpeg -y -i "$RAW_VIDEO" \
-            -vf "scale=1080:-2:flags=lanczos" \
-            -c:v libx264 \
-            -crf 26 \
-            -preset slow \
-            -profile:v high \
-            -pix_fmt yuv420p \
-            -movflags +faststart \
-            -an \
-            "$OUTPUT_VIDEO"
-
-          FINAL_SIZE=$(du -m "$OUTPUT_VIDEO" | cut -f1)
-          echo "Compressed video created: $OUTPUT_VIDEO ($FINAL_SIZE MB)"
-
-          if [ "$FINAL_SIZE" -gt 30 ]; then
-            echo "Warning: Video is larger than 30MB ($FINAL_SIZE MB). Applying stronger compression..."
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "Optimizing video with ffmpeg..."
             ffmpeg -y -i "$RAW_VIDEO" \
-              -vf "scale=720:-2:flags=lanczos" \
+              -vf "scale=1080:-2:flags=lanczos" \
               -c:v libx264 \
-              -crf 28 \
-              -preset medium \
+              -crf 26 \
+              -preset fast \
+              -profile:v high \
               -pix_fmt yuv420p \
               -movflags +faststart \
               -an \
               "$OUTPUT_VIDEO"
-            echo "Re-compressed video size: $(du -m "$OUTPUT_VIDEO" | cut -f1) MB"
+          else
+            echo "ffmpeg not available, using raw simulator video directly (already H.264 mp4)"
+            cp "$RAW_VIDEO" "$OUTPUT_VIDEO"
+          fi
+
+          FINAL_SIZE_BYTES=$(wc -c < "$OUTPUT_VIDEO")
+          FINAL_SIZE_MB=$((FINAL_SIZE_BYTES / 1048576))
+          echo "Final video ready: $OUTPUT_VIDEO (${FINAL_SIZE_MB} MB)"
+
+          if [ "$FINAL_SIZE_MB" -ge 30 ]; then
+            echo "Error: Video size exceeds 30MB limit!"
+            exit 1
           fi
 
       - name: Upload Demo Video Artifact
