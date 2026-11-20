@@ -1,0 +1,141 @@
+name: Record App Store Review Demo (iOS Simulator)
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulator_device:
+        description: 'iOS Simulator Device'
+        required: true
+        default: 'iPhone 16'
+        type: string
+
+jobs:
+  record-demo:
+    name: Record Demo Video on iOS Simulator
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Environment
+        run: |
+          flutter --version
+          xcodebuild -version
+          xcrun simctl list devices available
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: CocoaPods Install
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Boot Simulator & Clean Status Bar
+        id: boot-sim
+        run: |
+          DEVICE_NAME="${{ inputs.simulator_device }}"
+          echo "Finding simulator for: $DEVICE_NAME"
+          DEVICE_UDID=$(xcrun simctl list devices available | grep -E "$DEVICE_NAME \(" | head -n 1 | awk -F '[()]' '{print $2}')
+          if [ -z "$DEVICE_UDID" ]; then
+            echo "Fallback to first available iPhone simulator"
+            DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone " | head -n 1 | awk -F '[()]' '{print $2}')
+          fi
+          echo "Selected UDID: $DEVICE_UDID"
+          xcrun simctl boot "$DEVICE_UDID"
+          echo "sim_udid=$DEVICE_UDID" >> "$GITHUB_OUTPUT"
+
+          # Apple aesthetic clean status bar: 9:41 AM, 100% battery, full Wi-Fi
+          xcrun simctl status_bar "$DEVICE_UDID" override \
+            --time "9:41" \
+            --dataNetwork "wifi" \
+            --wifiMode "active" \
+            --wifiBars 3 \
+            --cellularMode "active" \
+            --cellularBars 4 \
+            --batteryState "charged" \
+            --batteryLevel 100
+
+      - name: Run Integration Test & Record Screen
+        run: |
+          UDID="${{ steps.boot-sim.outputs.sim_udid }}"
+          RAW_VIDEO="/tmp/raw_demo.mp4"
+
+          echo "Starting screen recording on simulator $UDID..."
+          xcrun simctl io "$UDID" recordVideo --codec=h264 "$RAW_VIDEO" &
+          RECORDER_PID=$!
+          echo "Recorder running with PID: $RECORDER_PID"
+
+          echo "Running Flutter Integration Test..."
+          set +e
+          flutter test integration_test/app_review_demo_test.dart -d "$UDID"
+          TEST_EXIT_CODE=$?
+          set -e
+
+          echo "Test finished with exit code: $TEST_EXIT_CODE. Stopping recorder..."
+          kill -INT "$RECORDER_PID" || true
+          wait "$RECORDER_PID" || true
+          sleep 3
+
+          if [ ! -f "$RAW_VIDEO" ]; then
+            echo "Error: Video recording was not generated!"
+            exit 1
+          fi
+
+          echo "Raw video size: $(ls -lh "$RAW_VIDEO" | awk '{print $5}')"
+
+      - name: Compress Video with ffmpeg (< 30 MB Guaranteed)
+        run: |
+          RAW_VIDEO="/tmp/raw_demo.mp4"
+          OUTPUT_VIDEO="amn_driver_review_demo.mp4"
+
+          # Compress to 1080p, H.264 High Profile, CRF 26, YUV420p, faststart
+          ffmpeg -y -i "$RAW_VIDEO" \
+            -vf "scale=1080:-2:flags=lanczos" \
+            -c:v libx264 \
+            -crf 26 \
+            -preset slow \
+            -profile:v high \
+            -pix_fmt yuv420p \
+            -movflags +faststart \
+            -an \
+            "$OUTPUT_VIDEO"
+
+          FINAL_SIZE=$(du -m "$OUTPUT_VIDEO" | cut -f1)
+          echo "Compressed video created: $OUTPUT_VIDEO ($FINAL_SIZE MB)"
+
+          if [ "$FINAL_SIZE" -gt 30 ]; then
+            echo "Warning: Video is larger than 30MB ($FINAL_SIZE MB). Applying stronger compression..."
+            ffmpeg -y -i "$RAW_VIDEO" \
+              -vf "scale=720:-2:flags=lanczos" \
+              -c:v libx264 \
+              -crf 28 \
+              -preset medium \
+              -pix_fmt yuv420p \
+              -movflags +faststart \
+              -an \
+              "$OUTPUT_VIDEO"
+            echo "Re-compressed video size: $(du -m "$OUTPUT_VIDEO" | cut -f1) MB"
+          fi
+
+      - name: Upload Demo Video Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amn-driver-review-demo
+          path: amn_driver_review_demo.mp4
+          retention-days: 14
