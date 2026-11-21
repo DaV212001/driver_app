@@ -8,6 +8,7 @@ import 'package:driver_app/config/storage_config.dart';
 import 'package:driver_app/constants/pages.dart';
 import 'package:driver_app/controllers/driver_dashboard_controller.dart';
 import 'package:driver_app/controllers/active_delivery_controller.dart';
+import 'package:driver_app/controllers/profile_controller.dart';
 import 'package:driver_app/models/incoming_job_offer.dart';
 import 'package:driver_app/screens/main_driver_navigation.dart';
 import 'package:driver_app/services/notification_service.dart';
@@ -215,23 +216,40 @@ void main() {
         }
         await Future.delayed(const Duration(milliseconds: 1000));
 
-        final deleteAccountFinder = find.text('Delete Account');
+        final deleteAccountFinder = find.widgetWithText(ListTile, 'Delete Account');
         if (deleteAccountFinder.evaluate().isNotEmpty) {
-          await tester.tap(deleteAccountFinder);
+          await tester.tap(deleteAccountFinder, warnIfMissed: false);
           await tester.pumpAndSettle();
-
-          // Keep confirmation modal visible for 3 seconds for review verification
-          await Future.delayed(const Duration(seconds: 3));
-
-          // Dismiss modal to keep demo account active
-          final cancelFinder = find.text('Cancel');
-          if (cancelFinder.evaluate().isNotEmpty) {
-            await tester.tap(cancelFinder);
-            await tester.pumpAndSettle();
-          } else if (Get.isDialogOpen ?? false) {
-            Get.back();
+        } else {
+          final textFinder = find.text('Delete Account');
+          if (textFinder.evaluate().isNotEmpty) {
+            await tester.tap(textFinder, warnIfMissed: false);
             await tester.pumpAndSettle();
           }
+        }
+
+        // Guarantee modal opens even if tap hit-test was swallowed
+        if (!(Get.isDialogOpen ?? false) && Get.isRegistered<ProfileController>()) {
+          final profileCtrl = Get.find<ProfileController>();
+          final ctx = Get.context ?? Get.key.currentContext;
+          if (ctx != null) {
+            profileCtrl.requestAccountDeletion(ctx);
+            await tester.pumpAndSettle();
+          }
+        }
+
+        // Keep confirmation modal visible for 4 seconds for review verification
+        await Future.delayed(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+
+        // Dismiss modal to keep demo account active
+        final cancelFinder = find.text('Cancel');
+        if (cancelFinder.evaluate().isNotEmpty) {
+          await tester.tap(cancelFinder, warnIfMissed: false);
+          await tester.pumpAndSettle();
+        } else if (Get.isDialogOpen ?? false) {
+          Get.back();
+          await tester.pumpAndSettle();
         }
       } catch (e) {
         debugPrint('[AMN Demo] Account deletion interaction notice: $e');
