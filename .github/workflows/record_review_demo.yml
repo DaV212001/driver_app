@@ -88,6 +88,9 @@ jobs:
           echo "Installing Runner.app onto simulator $UDID..."
           xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
 
+          echo "Packaging Runner.app for Appetize.io..."
+          (cd build/ios/iphonesimulator && zip -r -q ../../../amn-driver-ios-simulator.zip Runner.app)
+
           echo "Pre-granting ALL privacy permissions to com.amn.driverApp..."
           xcrun simctl privacy "$UDID" grant all com.amn.driverApp || true
           xcrun simctl privacy "$UDID" grant location com.amn.driverApp || true
@@ -170,4 +173,11 @@ jobs:
         with:
           name: amn-driver-review-demo
           path: amn_driver_review_demo.mp4
+          retention-days: 14
+
+      - name: Upload Appetize.io Simulator Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amn-driver-ios-simulator
+          path: amn-driver-ios-simulator.zip
           retention-days: 14

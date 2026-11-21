@@ -5,8 +5,10 @@ import 'package:get/get.dart';
 
 import 'package:driver_app/main.dart' as app;
 import 'package:driver_app/config/storage_config.dart';
+import 'package:driver_app/constants/pages.dart';
 import 'package:driver_app/controllers/driver_dashboard_controller.dart';
 import 'package:driver_app/controllers/active_delivery_controller.dart';
+import 'package:driver_app/core/widgets/swipe_slider.dart';
 import 'package:driver_app/models/incoming_job_offer.dart';
 import 'package:driver_app/screens/main_driver_navigation.dart';
 import 'package:driver_app/services/notification_service.dart';
@@ -102,6 +104,27 @@ void main() {
         }
       }
 
+      // Helper: Physically drag the SwipeSliderButton thumb across the track with 20 intermediate steps
+      Future<void> swipeSliderVisually(VoidCallback fallbackAction) async {
+        final slider = find.byType(SwipeSliderButton);
+        if (slider.evaluate().isNotEmpty) {
+          try {
+            final sliderTopLeft = tester.getTopLeft(slider);
+            final thumbCenter = sliderTopLeft + const Offset(28.0, 28.0);
+            final gesture = await tester.startGesture(thumbCenter);
+            for (int i = 0; i < 20; i++) {
+              await gesture.moveBy(const Offset(16.0, 0.0));
+              await tester.pump(const Duration(milliseconds: 35));
+            }
+            await gesture.up();
+            await tester.pumpAndSettle();
+          } catch (_) {}
+        }
+        await Future.delayed(const Duration(milliseconds: 400));
+        fallbackAction();
+        await tester.pumpAndSettle();
+      }
+
       // 7. Showcase Active Delivery / Navigation Screen (Tab Index 2)
       if (Get.isRegistered<MainDriverNavigationController>()) {
         Get.find<MainDriverNavigationController>().selectedIndex.value = 2;
@@ -110,17 +133,21 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 2000));
       await tester.pumpAndSettle();
 
-      // 8. Progress Delivery Flow:
-      // Step A: Confirm pickup at store & depart toward customer
+      // 8. Progress Delivery Flow using physical slider swipes:
       if (Get.isRegistered<ActiveDeliveryController>()) {
         final activeCtrl = Get.find<ActiveDeliveryController>();
-        activeCtrl.confirmPickupAndDepart();
-        await tester.pumpAndSettle();
+
+        // Step A: Swipe "Driver on the way to shop"
+        await Future.delayed(const Duration(milliseconds: 1500));
+        await swipeSliderVisually(() => activeCtrl.startDriverOnTheWayToShop());
         await Future.delayed(const Duration(milliseconds: 1800));
 
-        // Step B: Complete Delivery to Customer
-        activeCtrl.completeDelivery();
-        await tester.pumpAndSettle();
+        // Step B: Swipe "Driver on the way to you" (Confirm pickup at store)
+        await swipeSliderVisually(() => activeCtrl.confirmPickupAndDepart());
+        await Future.delayed(const Duration(milliseconds: 1800));
+
+        // Step C: Swipe "Swipe to Confirm Deliverd" (Complete Delivery)
+        await swipeSliderVisually(() => activeCtrl.completeDelivery());
         await Future.delayed(const Duration(milliseconds: 1500));
 
         // Dismiss completion dialog if visible
@@ -134,37 +161,66 @@ void main() {
         }
       }
 
-      // 9. Switch to Profile tab (Index 3) to satisfy Apple Guideline 5.1.1(v)
+      // 9. Return to Dashboard and navigate to Profile via Menu Drawer
       if (Get.isRegistered<MainDriverNavigationController>()) {
-        Get.find<MainDriverNavigationController>().selectedIndex.value = 3;
+        Get.find<MainDriverNavigationController>().selectedIndex.value = 0;
         await tester.pumpAndSettle();
-        await Future.delayed(const Duration(milliseconds: 1200));
       }
+      await Future.delayed(const Duration(milliseconds: 1200));
 
-      // 10. Showcase prominent Account Deletion capability
-      try {
-        final deleteAccountFinder = find.text('Delete Account');
-        if (deleteAccountFinder.evaluate().isNotEmpty) {
-          await tester.ensureVisible(deleteAccountFinder);
-          await tester.pumpAndSettle();
-        } else {
-          final scrollableFinder = find.byType(Scrollable);
-          if (scrollableFinder.evaluate().isNotEmpty) {
-            await tester.scrollUntilVisible(
-              deleteAccountFinder,
-              150,
-              scrollable: scrollableFinder.last,
-            );
-            await tester.pumpAndSettle();
-          }
+      // Open hamburger menu drawer
+      final menuBtn = find.byIcon(Icons.menu_rounded);
+      if (menuBtn.evaluate().isNotEmpty) {
+        await tester.tap(menuBtn);
+        await tester.pumpAndSettle();
+      } else {
+        final drawerGesture = await tester.startGesture(const Offset(10.0, 300.0));
+        for (int i = 0; i < 10; i++) {
+          await drawerGesture.moveBy(const Offset(30.0, 0.0));
+          await tester.pump(const Duration(milliseconds: 30));
         }
+        await drawerGesture.up();
+        await tester.pumpAndSettle();
+      }
+      await Future.delayed(const Duration(milliseconds: 1500));
 
+      // Tap "View Profile" or "Settings" to navigate to DriverProfileScreen
+      final viewProfileFinder = find.text('View Profile');
+      final settingsFinder = find.text('Settings');
+      if (viewProfileFinder.evaluate().isNotEmpty) {
+        await tester.tap(viewProfileFinder);
+        await tester.pumpAndSettle();
+      } else if (settingsFinder.evaluate().isNotEmpty) {
+        await tester.tap(settingsFinder);
+        await tester.pumpAndSettle();
+      } else {
+        Get.toNamed(Pages.profile);
+        await tester.pumpAndSettle();
+      }
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // 10. Showcase prominent Account Deletion capability (Apple Guideline 5.1.1(v))
+      try {
+        // Smoothly scroll down the profile page to reveal Delete Account
+        final profileScrollable = find.byType(Scrollable);
+        if (profileScrollable.evaluate().isNotEmpty) {
+          final scrollGesture = await tester.startGesture(const Offset(200.0, 650.0));
+          for (int i = 0; i < 12; i++) {
+            await scrollGesture.moveBy(const Offset(0.0, -35.0));
+            await tester.pump(const Duration(milliseconds: 35));
+          }
+          await scrollGesture.up();
+          await tester.pumpAndSettle();
+        }
+        await Future.delayed(const Duration(milliseconds: 1000));
+
+        final deleteAccountFinder = find.text('Delete Account');
         if (deleteAccountFinder.evaluate().isNotEmpty) {
           await tester.tap(deleteAccountFinder);
           await tester.pumpAndSettle();
 
-          // Keep confirmation modal visible for 2 seconds for review verification
-          await Future.delayed(const Duration(seconds: 2));
+          // Keep confirmation modal visible for 3 seconds for review verification
+          await Future.delayed(const Duration(seconds: 3));
 
           // Dismiss modal to keep demo account active
           final cancelFinder = find.text('Cancel');
