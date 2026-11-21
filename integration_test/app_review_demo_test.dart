@@ -25,10 +25,10 @@ void main() {
 
       // Launch the application
       app.main();
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.pumpAndSettle(const Duration(seconds: 1));
 
       // Allow splash & landing to settle
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
       // 2. Perform Login with verified Demo Driver credentials
@@ -37,17 +37,17 @@ void main() {
       if (textFields.evaluate().length >= 2) {
         // Field 0: Phone Number
         await tester.enterText(textFields.at(0), '944070484');
-        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
         // Field 1: Password (PIN)
         await tester.enterText(textFields.at(1), '1234');
-        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
         // Dismiss keyboard so full screen and submit button are visible
         FocusManager.instance.primaryFocus?.unfocus();
-        await tester.pumpAndSettle(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(const Duration(milliseconds: 600));
 
         // Tap Sign In button
         final signInButton = find.text('Sign In to Driver App');
@@ -62,18 +62,18 @@ void main() {
       // Wait for live authentication with AMN backend (api.amnplc.com)
       int waitCount = 0;
       while (!StorageConfig.isLoggedIn() && waitCount < 30) {
-        await tester.pump(const Duration(milliseconds: 500));
-        await Future.delayed(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 300));
         waitCount++;
       }
 
       // Allow navigation transition to MainDriverNavigation to settle
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-      await Future.delayed(const Duration(seconds: 3));
+      await tester.pumpAndSettle(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 1000));
       await tester.pumpAndSettle();
 
       // 3. Showcase Authenticated Driver Dashboard
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(milliseconds: 1200));
       await tester.pumpAndSettle();
 
       // 4. Toggle Online Status (Showcases driver availability state)
@@ -82,14 +82,14 @@ void main() {
         if (!dashCtrl.isOnline.value) {
           dashCtrl.toggleOnlineStatus();
           await tester.pumpAndSettle();
-          await Future.delayed(const Duration(seconds: 2));
+          await Future.delayed(const Duration(milliseconds: 1200));
         }
 
         // 5. Trigger Incoming Dispatch Job Offer Sheet (#AMN-9102)
         // Shows realistic pickup (Prosperity Media Bole) & dropoff (Kality Menaharia)
         dashCtrl.triggerIncomingOffer(IncomingJobOffer.sample());
         await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 4));
+        await Future.delayed(const Duration(milliseconds: 1800));
 
         // 6. Accept the incoming job offer
         final acceptBtn = find.text('Accept job');
@@ -107,7 +107,7 @@ void main() {
         Get.find<MainDriverNavigationController>().selectedIndex.value = 2;
         await tester.pumpAndSettle();
       }
-      await Future.delayed(const Duration(seconds: 4));
+      await Future.delayed(const Duration(milliseconds: 2000));
       await tester.pumpAndSettle();
 
       // 8. Progress Delivery Flow:
@@ -116,12 +116,12 @@ void main() {
         final activeCtrl = Get.find<ActiveDeliveryController>();
         activeCtrl.confirmPickupAndDepart();
         await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 4));
+        await Future.delayed(const Duration(milliseconds: 1800));
 
         // Step B: Complete Delivery to Customer
         activeCtrl.completeDelivery();
         await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 3));
+        await Future.delayed(const Duration(milliseconds: 1500));
 
         // Dismiss completion dialog if visible
         final doneBtn = find.text('Done');
@@ -138,7 +138,7 @@ void main() {
       if (Get.isRegistered<MainDriverNavigationController>()) {
         Get.find<MainDriverNavigationController>().selectedIndex.value = 3;
         await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(const Duration(milliseconds: 1200));
       }
 
       // 10. Showcase prominent Account Deletion capability
@@ -163,8 +163,8 @@ void main() {
           await tester.tap(deleteAccountFinder);
           await tester.pumpAndSettle();
 
-          // Keep confirmation modal visible for 4 seconds for review verification
-          await Future.delayed(const Duration(seconds: 4));
+          // Keep confirmation modal visible for 2 seconds for review verification
+          await Future.delayed(const Duration(seconds: 2));
 
           // Dismiss modal to keep demo account active
           final cancelFinder = find.text('Cancel');
@@ -181,7 +181,7 @@ void main() {
       }
 
       // Conclude demo cleanly
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(milliseconds: 800));
       debugPrint('[AMN Driver App Review Demo] Flow completed successfully.');
     },
   );

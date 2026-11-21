@@ -140,12 +140,12 @@ jobs:
           OUTPUT_VIDEO="amn_driver_review_demo.mp4"
 
           if command -v ffmpeg >/dev/null 2>&1; then
-            echo "Optimizing video with ffmpeg..."
+            echo "Optimizing video with ffmpeg to constant 30 FPS..."
             ffmpeg -y -i "$RAW_VIDEO" \
-              -vf "scale=1080:-2:flags=lanczos" \
+              -vf "fps=30,scale=1080:-2:flags=lanczos" \
               -c:v libx264 \
-              -crf 26 \
-              -preset fast \
+              -crf 24 \
+              -preset medium \
               -profile:v high \
               -pix_fmt yuv420p \
               -movflags +faststart \
