@@ -8,7 +8,6 @@ import 'package:driver_app/config/storage_config.dart';
 import 'package:driver_app/constants/pages.dart';
 import 'package:driver_app/controllers/driver_dashboard_controller.dart';
 import 'package:driver_app/controllers/active_delivery_controller.dart';
-import 'package:driver_app/core/widgets/swipe_slider.dart';
 import 'package:driver_app/models/incoming_job_offer.dart';
 import 'package:driver_app/screens/main_driver_navigation.dart';
 import 'package:driver_app/services/notification_service.dart';
@@ -104,23 +103,16 @@ void main() {
         }
       }
 
-      // Helper: Physically drag the SwipeSliderButton thumb across the track with 20 intermediate steps
-      Future<void> swipeSliderVisually(VoidCallback fallbackAction) async {
-        final slider = find.byType(SwipeSliderButton);
-        if (slider.evaluate().isNotEmpty) {
+      // Helper: Tap the prominent delivery action button with visual ripple & fallback
+      Future<void> tapDeliveryActionButton(Key buttonKey, VoidCallback fallbackAction) async {
+        final btnFinder = find.byKey(buttonKey);
+        if (btnFinder.evaluate().isNotEmpty) {
           try {
-            final sliderTopLeft = tester.getTopLeft(slider);
-            final thumbCenter = sliderTopLeft + const Offset(28.0, 28.0);
-            final gesture = await tester.startGesture(thumbCenter);
-            for (int i = 0; i < 20; i++) {
-              await gesture.moveBy(const Offset(16.0, 0.0));
-              await tester.pump(const Duration(milliseconds: 35));
-            }
-            await gesture.up();
+            await tester.tap(btnFinder);
             await tester.pumpAndSettle();
           } catch (_) {}
         }
-        await Future.delayed(const Duration(milliseconds: 400));
+        await Future.delayed(const Duration(milliseconds: 300));
         fallbackAction();
         await tester.pumpAndSettle();
       }
@@ -133,21 +125,30 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 2000));
       await tester.pumpAndSettle();
 
-      // 8. Progress Delivery Flow using physical slider swipes:
+      // 8. Progress Delivery Flow using prominent delivery action buttons:
       if (Get.isRegistered<ActiveDeliveryController>()) {
         final activeCtrl = Get.find<ActiveDeliveryController>();
 
-        // Step A: Swipe "Driver on the way to shop"
+        // Step A: Tap "Start Driving to Store"
         await Future.delayed(const Duration(milliseconds: 1500));
-        await swipeSliderVisually(() => activeCtrl.startDriverOnTheWayToShop());
+        await tapDeliveryActionButton(
+          const Key('btn_driver_on_way_to_shop'),
+          () => activeCtrl.startDriverOnTheWayToShop(),
+        );
         await Future.delayed(const Duration(milliseconds: 1800));
 
-        // Step B: Swipe "Driver on the way to you" (Confirm pickup at store)
-        await swipeSliderVisually(() => activeCtrl.confirmPickupAndDepart());
+        // Step B: Tap "Confirm Pickup & Depart"
+        await tapDeliveryActionButton(
+          const Key('btn_confirm_pickup_depart'),
+          () => activeCtrl.confirmPickupAndDepart(),
+        );
         await Future.delayed(const Duration(milliseconds: 1800));
 
-        // Step C: Swipe "Swipe to Confirm Deliverd" (Complete Delivery)
-        await swipeSliderVisually(() => activeCtrl.completeDelivery());
+        // Step C: Tap "Complete Delivery"
+        await tapDeliveryActionButton(
+          const Key('btn_complete_delivery'),
+          () => activeCtrl.completeDelivery(),
+        );
         await Future.delayed(const Duration(milliseconds: 1500));
 
         // Dismiss completion dialog if visible

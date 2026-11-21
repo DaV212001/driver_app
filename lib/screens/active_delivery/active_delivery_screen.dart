@@ -6,7 +6,6 @@ import '../../constants/constants.dart';
 import '../../constants/pages.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
-import '../../core/widgets/swipe_slider.dart';
 import '../../controllers/active_delivery_controller.dart';
 import '../../models/delivery_task.dart';
 import '../dashboard/widgets/driver_map_canvas.dart';
@@ -933,27 +932,30 @@ class ActiveDeliveryScreen extends StatelessWidget {
 
                       const SizedBox(height: 8),
 
-                      // Step Action Slider aligned with Statuses: 1: Accepted, 2: To Shop, 3: To You, 4: Deliverd
+                      // Step Action Button aligned with Statuses: 1: Accepted, 2: To Shop, 3: To You, 4: Deliverd
                       if (task.status == DeliveryStatus.assigned)
-                        SwipeSliderButton(
-                          text: 'Swipe: Driver on the way to shop',
+                        _buildDeliveryActionButton(
+                          buttonKey: const Key('btn_driver_on_way_to_shop'),
+                          label: 'Start Driving to Store',
                           icon: Icons.directions_car_rounded,
                           backgroundColor: AppColors.primary,
-                          onSwipeCompleted: controller.startDriverOnTheWayToShop,
+                          onPressed: controller.startDriverOnTheWayToShop,
                         )
                       else if (task.status == DeliveryStatus.headingToStore || task.status == DeliveryStatus.atStore)
-                        SwipeSliderButton(
-                          text: 'Swipe: Driver on the way to you',
+                        _buildDeliveryActionButton(
+                          buttonKey: const Key('btn_confirm_pickup_depart'),
+                          label: 'Confirm Pickup & Depart',
                           icon: Icons.inventory_2_rounded,
                           backgroundColor: AppColors.primary,
-                          onSwipeCompleted: controller.confirmPickupAndDepart,
+                          onPressed: controller.confirmPickupAndDepart,
                         )
                       else if (task.status == DeliveryStatus.pickedUp)
-                        SwipeSliderButton(
-                          text: 'Swipe to Confirm Deliverd',
+                        _buildDeliveryActionButton(
+                          buttonKey: const Key('btn_complete_delivery'),
+                          label: 'Complete Delivery',
                           icon: Icons.check_circle_rounded,
                           backgroundColor: AppColors.onlineGreen,
-                          onSwipeCompleted: controller.completeDelivery,
+                          onPressed: controller.completeDelivery,
                         ),
                     ],
                   ),
@@ -1028,6 +1030,51 @@ class ActiveDeliveryScreen extends StatelessWidget {
         height: 2,
         margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
         color: isActive ? AppColors.onlineGreen : AppColors.outlineVariant,
+      ),
+    );
+  }
+
+  Widget _buildDeliveryActionButton({
+    required Key buttonKey,
+    required String label,
+    required IconData icon,
+    required Color backgroundColor,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        key: buttonKey,
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          shadowColor: backgroundColor.withValues(alpha: 0.35),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(27),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: Colors.white,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white70),
+          ],
+        ),
       ),
     );
   }
