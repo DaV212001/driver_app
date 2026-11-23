@@ -1,8 +1,9 @@
 import 'delivery_task.dart';
+import '../utils/currency_utils.dart';
 
 class DailyEarning {
   final String dayName; // Mon, Tue, etc.
-  final double amount; // In ETB
+  final double amount;
   final int tripCount;
 
   DailyEarning({
@@ -16,10 +17,11 @@ class CompletedDeliveryRecord {
   final String orderNumber;
   final String storeName;
   final String destinationArea;
-  final double payoutAmount; // In ETB
-  final double tipAmount; // In ETB
+  final double payoutAmount;
+  final double tipAmount;
   final DateTime completedAt;
   final DeliveryTask? task;
+  final String? currency;
 
   CompletedDeliveryRecord({
     required this.orderNumber,
@@ -29,9 +31,11 @@ class CompletedDeliveryRecord {
     this.tipAmount = 0.0,
     required this.completedAt,
     this.task,
+    this.currency,
   });
 
   double get totalPayout => payoutAmount + tipAmount;
+  String get displayCurrency => CurrencyUtils.resolveCode(currency ?? task?.currency);
 
   // Convert to full DeliveryTask for the OrderDetailScreen if needed
   DeliveryTask toDeliveryTask() {
@@ -49,8 +53,9 @@ class CompletedDeliveryRecord {
       customerDistanceKm: 3.4,
       payoutAmount: payoutAmount,
       tipAmount: tipAmount,
+      currency: currency,
       items: [
-        DeliveryItemCheck(name: 'Completed Order Items', quantity: 1, isChecked: true),
+        DeliveryItemCheck(name: 'Completed Order Items', quantity: 1, currency: currency, isChecked: true),
       ],
       status: DeliveryStatus.delivered,
       createdAt: completedAt.subtract(const Duration(minutes: 40)),
@@ -60,13 +65,14 @@ class CompletedDeliveryRecord {
 }
 
 class EarningsSummary {
-  final double availableBalance; // In ETB
-  final double todayEarnings; // In ETB
+  final double availableBalance;
+  final double todayEarnings;
   final int todayDeliveries;
   final double todayOnlineHours;
-  final double todayTips; // In ETB
+  final double todayTips;
   final List<DailyEarning> weeklyBreakdown;
   final List<CompletedDeliveryRecord> recentCompleted;
+  final String? currency;
 
   EarningsSummary({
     required this.availableBalance,
@@ -76,7 +82,10 @@ class EarningsSummary {
     required this.todayTips,
     required this.weeklyBreakdown,
     required this.recentCompleted,
+    this.currency,
   });
+
+  String get displayCurrency => CurrencyUtils.resolveCode(currency);
 
   factory EarningsSummary.empty() => EarningsSummary(
         availableBalance: 0.0,

@@ -490,7 +490,7 @@ class DriverProfileScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '${profile.walletAmount.toStringAsFixed(2)} ETB',
+                                  '${profile.walletAmount.toStringAsFixed(2)} ${profile.displayCurrency}',
                                   style: textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.onlineGreen,

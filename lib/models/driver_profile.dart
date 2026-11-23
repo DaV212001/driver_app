@@ -1,4 +1,5 @@
 import '../config/storage_config.dart';
+import '../utils/currency_utils.dart';
 
 class VehicleInfo {
   final String type; // MoterBick, Bajaj, Car, etc.
@@ -52,6 +53,7 @@ class DriverProfile {
   bool autoAcceptOrders;
   String navigationApp;
   final String? cityId;
+  final String? currency;
 
   DriverProfile({
     required this.id,
@@ -69,7 +71,10 @@ class DriverProfile {
     this.autoAcceptOrders = false,
     this.navigationApp = 'Google Maps',
     this.cityId,
+    this.currency,
   });
+
+  String get displayCurrency => CurrencyUtils.resolveCode(currency);
 
   factory DriverProfile.fromStorage() {
     final name = StorageConfig.getDriverName() ?? '';
@@ -83,6 +88,7 @@ class DriverProfile {
     final vehicleName = StorageConfig.getDriverVehicleName() ?? '';
     final vehicleImage = StorageConfig.getDriverVehicleImage();
     final cityId = StorageConfig.getDriverCityId();
+    final currency = StorageConfig.getDriverCurrency();
 
     final displayName = vehicleName.isNotEmpty
         ? vehicleName
@@ -111,6 +117,7 @@ class DriverProfile {
       autoAcceptOrders: StorageConfig.getAutoAccept(),
       navigationApp: StorageConfig.getNavApp(),
       cityId: cityId,
+      currency: currency,
     );
   }
 
@@ -142,6 +149,7 @@ class DriverProfile {
     bool? autoAcceptOrders,
     String? navigationApp,
     String? cityId,
+    String? currency,
   }) {
     return DriverProfile(
       id: id ?? this.id,
@@ -159,6 +167,7 @@ class DriverProfile {
       autoAcceptOrders: autoAcceptOrders ?? this.autoAcceptOrders,
       navigationApp: navigationApp ?? this.navigationApp,
       cityId: cityId ?? this.cityId,
+      currency: currency ?? this.currency,
     );
   }
 }

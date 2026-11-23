@@ -1,3 +1,6 @@
+import 'delivery_task.dart';
+import '../utils/currency_utils.dart';
+
 class IncomingJobOffer {
   final String id;
   final String orderNumber;
@@ -14,6 +17,7 @@ class IncomingJobOffer {
   final String serviceCategory;
   final String paymentMethod;
   final double fareAmount;
+  final String? currency;
   final int dropoffMinutes;
   final double distanceKm;
   final int totalDurationSeconds;
@@ -41,6 +45,7 @@ class IncomingJobOffer {
     this.serviceCategory = 'Economy',
     this.paymentMethod = 'Cash',
     required this.fareAmount,
+    this.currency,
     required this.dropoffMinutes,
     required this.distanceKm,
     this.totalDurationSeconds = 120, // 2-minute order acceptance countdown
@@ -52,6 +57,40 @@ class IncomingJobOffer {
     this.statusLabel = 'Order Placed',
     this.orderType = 'delivery',
   }) : receivedAt = receivedAt ?? DateTime.now();
+
+  String get displayCurrency => CurrencyUtils.resolveCode(currency);
+
+  DeliveryTask toDeliveryTask() {
+    return DeliveryTask(
+      id: id,
+      orderNumber: orderNumber,
+      orderType: orderType,
+      storeName: pickupName,
+      storeCategory: serviceCategory,
+      storeAddress: pickupAddress,
+      storeDistanceKm: distanceKm * 0.3,
+      customerName: isCourier ? 'Courier Delivery' : 'Customer ($serviceCategory)',
+      customerPhone: '+251 91 123 4567',
+      customerAddress: dropoffAddress.isNotEmpty ? dropoffAddress : dropoffName,
+      customerDistanceKm: distanceKm,
+      payoutAmount: fareAmount,
+      tipAmount: 0.0,
+      currency: currency,
+      paymentMethod: paymentMethod,
+      items: const [],
+      totalItemCount: 1,
+      deliveryNotes: isCourier ? 'Courier Package Delivery' : null,
+      status: DeliveryStatus.assigned,
+      createdAt: DateTime.now(),
+      customerId: customerId,
+      ownerId: ownerId,
+      propertyName: propertyName ?? pickupName,
+      storeLatitude: pickupLatitude,
+      storeLongitude: pickupLongitude,
+      customerLatitude: dropoffLatitude,
+      customerLongitude: dropoffLongitude,
+    );
+  }
 
   bool get isCourier => orderType == 'courier' || orderType == 'courirer';
   bool get isCorporate => orderType == 'corporate' || orderType == 'company';
@@ -97,6 +136,9 @@ class IncomingJobOffer {
       orderType: 'delivery',
     );
   }
+
+  factory IncomingJobOffer.fromJson(Map<String, dynamic> data) =>
+      IncomingJobOffer.fromNotificationPayload(data);
 
   factory IncomingJobOffer.fromNotificationPayload(Map<String, dynamic> data) {
     final rawType = (data['order_type'] ?? data['type'] ?? data['orderType'] ?? '').toString().toLowerCase();
@@ -245,6 +287,10 @@ class IncomingJobOffer {
     final propName = data['property']?.toString() ?? data['property_name']?.toString() ?? pickup;
     final rawStatus = data['status']?.toString() ?? '0';
     final statusName = rawStatus == '0' ? 'Order Placed' : (data['status_name']?.toString() ?? 'Order Placed');
+    final rawCurrency = data['currency']?.toString() ??
+        data['currency_code']?.toString() ??
+        data['currency_symbol']?.toString() ??
+        data['currency_id']?.toString();
 
     return IncomingJobOffer(
       id: orderId,
@@ -262,6 +308,7 @@ class IncomingJobOffer {
       serviceCategory: cat,
       paymentMethod: payMethod,
       fareAmount: fare,
+      currency: rawCurrency,
       dropoffMinutes: dropMins,
       distanceKm: distKm,
       totalDurationSeconds: durSecs,

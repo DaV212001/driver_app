@@ -133,7 +133,7 @@ class EarningsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       AutoSizeText(
-                        formatEtb(earnings.availableBalance),
+                        formatEtb(earnings.availableBalance, currency: earnings.currency),
                         maxLines: 1,
                         minFontSize: 18,
                         style: textTheme.displayLarge?.copyWith(
@@ -311,7 +311,7 @@ class EarningsScreen extends StatelessWidget {
                       title: 'Avg / Trip',
                       value: formatEtb(earnings.todayDeliveries > 0
                           ? (earnings.todayEarnings / earnings.todayDeliveries)
-                          : 0),
+                          : 0, currency: earnings.currency),
                       icon: Icons.trending_up_rounded,
                       iconColor: AppColors.onlineGreen,
                     ),
@@ -412,7 +412,7 @@ class EarningsScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 AutoSizeText(
-                                  formatEtb(record.totalPayout),
+                                  formatEtb(record.totalPayout, currency: record.currency),
                                   maxLines: 1,
                                   minFontSize: 10,
                                   style: textTheme.titleSmall?.copyWith(

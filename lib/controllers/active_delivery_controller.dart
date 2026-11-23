@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../utils/currency_utils.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import '../config/storage_config.dart';
@@ -489,7 +490,7 @@ class ActiveDeliveryController extends GetxController {
         title: 'Delivery Completed! 🎉',
         titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         middleText:
-            'You earned ETB ${(task.totalPayout).toStringAsFixed(2)} for this delivery.\nGreat work!',
+            'You earned ${CurrencyUtils.format(task.totalPayout, currency: task.currency)} for this delivery.\nGreat work!',
         textConfirm: 'Done',
         confirmTextColor: Colors.white,
         onConfirm: () => Get.back(),

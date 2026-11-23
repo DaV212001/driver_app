@@ -78,8 +78,8 @@ class WalletScreen extends StatelessWidget {
                         children: [
                           Text(
                             isHidden
-                                ? 'ETB •••••'
-                                : 'ETB ${earnings.availableBalance.toStringAsFixed(1)}',
+                                ? '${earnings.displayCurrency} •••••'
+                                : '${earnings.displayCurrency} ${earnings.availableBalance.toStringAsFixed(1)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 30,
@@ -224,7 +224,7 @@ class WalletScreen extends StatelessWidget {
                             title: Text(record.destinationArea, style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: Text(DateFormat('hh:mm a').format(record.completedAt)),
                             trailing: Text(
-                              'ETB ${record.totalPayout.toStringAsFixed(1)}',
+                              '${record.displayCurrency} ${record.totalPayout.toStringAsFixed(1)}',
                               style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.onlineGreen),
                             ),
                           );
@@ -317,7 +317,7 @@ class WalletScreen extends StatelessWidget {
                                 : selectedTab == 'Weekly'
                                     ? 'Weekly Total'
                                     : 'Monthly Total',
-                            value: 'ETB ${earnings.todayEarnings.toStringAsFixed(1)}',
+                            value: '${earnings.displayCurrency} ${earnings.todayEarnings.toStringAsFixed(1)}',
                           ),
                         ),
                         Expanded(

@@ -309,7 +309,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
     Get.snackbar(
       'Deliverd! 🎉',
-      'Order #${_task.orderNumber} delivered successfully. ETB ${_task.totalPayout.toStringAsFixed(2)} credited to your wallet.',
+      'Order #${_task.orderNumber} delivered successfully. ${formatEtb(_task.totalPayout, currency: _task.currency)} credited to your wallet.',
       backgroundColor: AppColors.onlineGreen,
       colorText: Colors.white,
       snackPosition: SnackPosition.TOP,
@@ -768,7 +768,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   ),
                                   if (item.unitPrice != null)
                                     AutoSizeText(
-                                      '${formatEtb(item.unitPrice!)} each',
+                                      '${formatEtb(item.unitPrice!, currency: item.currency ?? _task.currency)} each',
                                       maxLines: 1,
                                       minFontSize: 9,
                                       style: textTheme.bodySmall?.copyWith(fontSize: 10.5),
@@ -778,7 +778,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ),
                             if (item.unitPrice != null)
                               AutoSizeText(
-                                formatEtb(item.totalPrice),
+                                formatEtb(item.totalPrice, currency: item.currency ?? _task.currency),
                                 maxLines: 1,
                                 minFontSize: 10,
                                 style: textTheme.bodyMedium?.copyWith(
@@ -922,7 +922,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Delivery Fee', style: textTheme.bodyMedium?.copyWith(fontSize: 12.5)),
-                      AutoSizeText(formatEtb(task.payoutAmount), maxLines: 1, minFontSize: 10, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 12.5)),
+                      AutoSizeText(formatEtb(task.payoutAmount, currency: task.currency), maxLines: 1, minFontSize: 10, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 12.5)),
                     ],
                   ),
 
@@ -938,7 +938,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, fontSize: 13),
                       ),
                       AutoSizeText(
-                        formatEtb(task.totalPayout),
+                        formatEtb(task.totalPayout, currency: task.currency),
                         maxLines: 1,
                         minFontSize: 12,
                         style: textTheme.titleMedium?.copyWith(

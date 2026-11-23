@@ -1,3 +1,5 @@
+import '../utils/currency_utils.dart';
+
 const String kApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'https://api.amnplc.com/api',
@@ -19,7 +21,14 @@ const bool kShowDebugFcmCard = bool.fromEnvironment(
   defaultValue: false,
 );
 
-/// Helper to format money consistently throughout AMN Driver
-String formatEtb(double amount) {
-  return 'ETB ${amount.toStringAsFixed(2)}';
+/// Helper to format money consistently throughout AMN Driver with dynamic currency support.
+String formatCurrency(num amount, {dynamic currency, int decimalDigits = 2}) {
+  return CurrencyUtils.format(amount, currency: currency, decimalDigits: decimalDigits);
 }
+
+/// Helper to format money consistently throughout AMN Driver.
+/// Backward-compatible with formatEtb while supporting optional dynamic currency.
+String formatEtb(num amount, {dynamic currency, int decimalDigits = 2}) {
+  return formatCurrency(amount, currency: currency ?? kCurrency, decimalDigits: decimalDigits);
+}
+

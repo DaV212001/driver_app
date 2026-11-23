@@ -426,7 +426,7 @@ class AssignedDeliveriesScreen extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        formatEtb(task.totalPayout),
+                        formatEtb(task.totalPayout, currency: task.currency),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,

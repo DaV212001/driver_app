@@ -7,6 +7,7 @@ import '../models/earnings_summary.dart';
 import '../screens/wallet/payment_webview_screen.dart';
 import '../services/driver_order_service.dart';
 import '../services/driver_profile_service.dart';
+import '../utils/currency_utils.dart';
 
 class EarningsController extends GetxController {
   final Rx<EarningsSummary> earnings = EarningsSummary.empty().obs;
@@ -398,7 +399,7 @@ class EarningsController extends GetxController {
           if (!Get.testMode && Get.context != null) {
             Get.snackbar(
               'Deposit Successful',
-              'ETB ${amount.toStringAsFixed(2)} credited to your wallet.',
+              '${CurrencyUtils.format(amount, currency: earnings.value.currency)} credited to your wallet.',
               snackPosition: SnackPosition.TOP,
               backgroundColor: const Color(0xFF22C55E),
               colorText: Colors.white,
@@ -455,7 +456,7 @@ class EarningsController extends GetxController {
 
     Get.snackbar(
       'Transfer Completed',
-      'ETB ${amount.toStringAsFixed(2)} transferred to driver ($recipientPhone).',
+      '${CurrencyUtils.format(amount, currency: earnings.value.currency)} transferred to driver ($recipientPhone).',
       snackPosition: SnackPosition.TOP,
       backgroundColor: const Color(0xFF009EE0),
       colorText: Colors.white,
@@ -488,7 +489,7 @@ class EarningsController extends GetxController {
       title: 'Cash Out Successful! 🏦',
       titleStyle: const TextStyle(fontWeight: FontWeight.bold),
       middleText:
-          'ETB ${cashedAmount.toStringAsFixed(2)} has been transferred to your Commercial Bank of Ethiopia (CBE) account ending in 0294.',
+          '${CurrencyUtils.format(cashedAmount, currency: earnings.value.currency)} has been transferred to your Commercial Bank of Ethiopia (CBE) account ending in 0294.',
       textConfirm: 'Great',
       confirmTextColor: Colors.white,
       onConfirm: () => Get.back(),

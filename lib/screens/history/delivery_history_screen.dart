@@ -365,7 +365,7 @@ class DeliveryHistoryScreen extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        'ETB ${task.totalPayout.toStringAsFixed(1)}',
+                                        '${task.displayCurrency} ${task.totalPayout.toStringAsFixed(1)}',
                                         style: const TextStyle(
                                           fontSize: 14.5,
                                           fontWeight: FontWeight.w800,

@@ -28,6 +28,7 @@ class StorageConfig {
   static const String _keyDriverCityId = 'driver_city_id';
   static const String _keyDriverVehicleName = 'driver_vehicle_name';
   static const String _keyDriverVehicleImage = 'driver_vehicle_image';
+  static const String _keyDriverCurrency = 'driver_currency';
   static const String _keyDriverPickupKmPrice = 'driver_pickup_km_price';
   static const String _keyDriverPickupStartPrice = 'driver_pickup_start_price';
 
@@ -94,6 +95,10 @@ class StorageConfig {
   static String? getDriverVehicleImage() => _prefs?.getString(_keyDriverVehicleImage);
   static Future<bool> setDriverVehicleImage(String url) async =>
       await _prefs?.setString(_keyDriverVehicleImage, url) ?? false;
+
+  static String? getDriverCurrency() => _prefs?.getString(_keyDriverCurrency);
+  static Future<bool> setDriverCurrency(String currency) async =>
+      await _prefs?.setString(_keyDriverCurrency, currency) ?? false;
 
   static double? getPickupKmPrice() => _prefs?.getDouble(_keyDriverPickupKmPrice);
   static Future<bool> setPickupKmPrice(double price) async =>

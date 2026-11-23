@@ -23,8 +23,8 @@ class MainDriverNavigationController extends GetxController {
           backgroundColor: const Color(0xFF1E293B),
           colorText: Colors.white,
         );
-        return;
       }
+      return;
     }
     selectedIndex.value = index;
     if (index == 1 && Get.isRegistered<EarningsController>()) {

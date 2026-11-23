@@ -12,6 +12,7 @@ import 'package:driver_app/config/dio_config.dart';
 import 'package:driver_app/data/driver_mock_data.dart';
 import 'package:driver_app/models/delivery_task.dart';
 import 'package:driver_app/models/incoming_job_offer.dart';
+import 'package:driver_app/utils/currency_utils.dart';
 import 'package:driver_app/services/notification_service.dart';
 import 'package:driver_app/services/order_alert_service.dart';
 import 'package:driver_app/controllers/driver_dashboard_controller.dart';
@@ -46,6 +47,40 @@ void main() {
 
     test('Currency constant is ETB', () {
       expect(kCurrency, 'ETB');
+    });
+
+    test('Dynamic currency resolution and formatting', () {
+      expect(CurrencyUtils.resolveCode('1'), 'ETB');
+      expect(CurrencyUtils.resolveCode('2'), 'AED');
+      expect(CurrencyUtils.resolveCode('3'), 'USD');
+      expect(CurrencyUtils.resolveCode('4'), 'Yuan');
+      expect(CurrencyUtils.resolveCode('USD'), 'USD');
+      expect(CurrencyUtils.resolveCode(null), 'ETB');
+
+      expect(formatCurrency(150, currency: 'USD'), 'USD 150.00');
+      expect(formatCurrency(150, currency: '2'), 'AED 150.00');
+      expect(formatCurrency(150), 'ETB 150.00');
+      expect(formatEtb(150, currency: 'USD'), 'USD 150.00');
+    });
+
+    test('DeliveryTask and IncomingJobOffer resolve dynamic currency from JSON', () {
+      final task = DeliveryTask.fromApiOrderJson({
+        'id': '9901',
+        'order_number': 'AMN-9901',
+        'currency': 'USD',
+        'payout_amount': 25.5,
+      });
+      expect(task.currency, 'USD');
+      expect(task.displayCurrency, 'USD');
+
+      final offer = IncomingJobOffer.fromJson({
+        'id': '9902',
+        'order_number': 'AMN-9902',
+        'currency_id': '2',
+        'fare_amount': 30.0,
+      });
+      expect(offer.currency, '2');
+      expect(offer.displayCurrency, 'AED');
     });
   });
 

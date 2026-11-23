@@ -34,7 +34,7 @@ class _WalletTransferScreenState extends State<WalletTransferScreen> {
     }
     final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0.0;
     if (amount <= 0) {
-      Get.snackbar('Invalid Amount', 'Please enter a valid transfer amount in ETB.');
+      Get.snackbar('Invalid Amount', 'Please enter a valid transfer amount in ${_earningsCtrl.earnings.value.displayCurrency}.');
       return;
     }
 

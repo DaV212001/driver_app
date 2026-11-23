@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
+import '../utils/currency_utils.dart';
 
 enum DeliveryStatus {
   placed,
@@ -18,21 +19,25 @@ class DeliveryItemCheck {
   final String name;
   final int quantity;
   final double? unitPrice;
+  final String? currency;
   bool isChecked;
 
   DeliveryItemCheck({
     required this.name,
     required this.quantity,
     this.unitPrice,
+    this.currency,
     this.isChecked = false,
   });
 
+  String get displayCurrency => CurrencyUtils.resolveCode(currency);
   double get totalPrice => (unitPrice ?? 0.0) * quantity;
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'quantity': quantity,
         'unitPrice': unitPrice,
+        'currency': currency,
         'isChecked': isChecked,
       };
 
@@ -41,6 +46,10 @@ class DeliveryItemCheck {
         name: json['name'] as String,
         quantity: json['quantity'] as int? ?? 1,
         unitPrice: (json['unitPrice'] as num?)?.toDouble(),
+        currency: json['currency']?.toString() ??
+            json['currency_code']?.toString() ??
+            json['currency_symbol']?.toString() ??
+            json['currency_id']?.toString(),
         isChecked: json['isChecked'] as bool? ?? false,
       );
 }
@@ -58,8 +67,9 @@ class DeliveryTask {
   final String customerAddress;
   final double customerDistanceKm;
   final String? deliveryNotes;
-  final double payoutAmount; // Delivery Fee in ETB
-  final double tipAmount; // Customer tip in ETB
+  final double payoutAmount; // Delivery Fee
+  final double tipAmount; // Customer tip
+  final String? currency;
   final String paymentMethod; // e.g. 'Telebirr', 'CBE Birr', 'Cash on Delivery'
   final List<DeliveryItemCheck> items;
   DeliveryStatus status;
@@ -91,6 +101,7 @@ class DeliveryTask {
     this.deliveryNotes,
     required this.payoutAmount,
     this.tipAmount = 0.0,
+    this.currency,
     this.paymentMethod = 'Telebirr',
     required this.items,
     this.status = DeliveryStatus.assigned,
@@ -107,6 +118,9 @@ class DeliveryTask {
     this.customerLongitude,
     this.totalItemCount,
   });
+
+  String get displayCurrency => CurrencyUtils.resolveCode(currency);
+  String formatPayout() => CurrencyUtils.format(totalPayout, currency: currency);
 
   double get totalPayout => payoutAmount + tipAmount;
   int get itemCount => items.isNotEmpty
@@ -368,11 +382,20 @@ class DeliveryTask {
       }
     }
 
+    final rawCurrency = json['currency']?.toString() ??
+        json['currency_code']?.toString() ??
+        json['currency_symbol']?.toString() ??
+        json['currency_id']?.toString();
+
     List<DeliveryItemCheck> parsedItems = [];
     if (json['items'] is List) {
       for (final item in json['items']) {
         if (item is Map<String, dynamic>) {
-          parsedItems.add(DeliveryItemCheck.fromJson(item));
+          final itemMap = Map<String, dynamic>.from(item);
+          if (itemMap['currency'] == null && rawCurrency != null) {
+            itemMap['currency'] = rawCurrency;
+          }
+          parsedItems.add(DeliveryItemCheck.fromJson(itemMap));
         }
       }
     } else if (json['data'] is List) {
@@ -383,6 +406,9 @@ class DeliveryTask {
             name: (item['item_name'] ?? item['menu_name'] ?? item['product_name'] ?? item['name'] ?? 'Item').toString(),
             quantity: int.tryParse(item['quantity']?.toString() ?? item['qty']?.toString() ?? '1') ?? 1,
             unitPrice: double.tryParse(item['item_price']?.toString() ?? item['price']?.toString() ?? ''),
+            currency: item['currency']?.toString() ??
+                item['currency_code']?.toString() ??
+                rawCurrency,
             isChecked: mappedStatus == DeliveryStatus.pickedUp ||
                 mappedStatus == DeliveryStatus.delivered,
           ));
@@ -395,6 +421,7 @@ class DeliveryTask {
         name: json['item_name'].toString(),
         quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
         unitPrice: double.tryParse(json['item_price']?.toString() ?? json['price']?.toString() ?? ''),
+        currency: rawCurrency,
         isChecked: mappedStatus == DeliveryStatus.pickedUp ||
             mappedStatus == DeliveryStatus.delivered,
       ));
@@ -497,6 +524,7 @@ class DeliveryTask {
           json['package_description']?.toString(),
       payoutAmount: payoutAmount,
       tipAmount: tipAmount,
+      currency: rawCurrency,
       paymentMethod:
           json['payment_type']?.toString().toUpperCase() ?? 'TELEBIRR',
       items: parsedItems,
@@ -530,6 +558,7 @@ class DeliveryTask {
     String? deliveryNotes,
     double? payoutAmount,
     double? tipAmount,
+    String? currency,
     String? paymentMethod,
     List<DeliveryItemCheck>? items,
     DeliveryStatus? status,
@@ -561,6 +590,7 @@ class DeliveryTask {
       deliveryNotes: deliveryNotes ?? this.deliveryNotes,
       payoutAmount: payoutAmount ?? this.payoutAmount,
       tipAmount: tipAmount ?? this.tipAmount,
+      currency: currency ?? this.currency,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       items: items ?? this.items,
       status: status ?? this.status,
@@ -595,6 +625,7 @@ class DeliveryTask {
         'notes': deliveryNotes,
         'payout_amount': payoutAmount,
         'tip_amount': tipAmount,
+        'currency': currency,
         'payment_type': paymentMethod,
         'items': items.map((i) => i.toJson()).toList(),
         'total_item': totalItemCount,

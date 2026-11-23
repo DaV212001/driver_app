@@ -1,3 +1,5 @@
+import '../utils/currency_utils.dart';
+
 class DeliveryPriceModel {
   final int id;
   final int cityId;
@@ -26,6 +28,8 @@ class DeliveryPriceModel {
     this.createdAt,
     this.updatedAt,
   });
+
+  String get displayCurrency => CurrencyUtils.resolveCode(currencyId);
 
   static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;

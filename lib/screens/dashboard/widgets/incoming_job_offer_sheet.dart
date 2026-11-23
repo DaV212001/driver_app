@@ -251,7 +251,7 @@ class IncomingJobOfferSheet extends StatelessWidget {
                     const Icon(Icons.payments_rounded, color: AppColors.onlineGreen, size: 16),
                     const SizedBox(width: 6),
                     Text(
-                      '${offer.paymentMethod}  –  ETB ${offer.fareAmount.toStringAsFixed(0)}',
+                      '${offer.paymentMethod}  –  ${offer.displayCurrency} ${offer.fareAmount.toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 14,

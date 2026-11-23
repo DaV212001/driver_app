@@ -515,6 +515,7 @@ class DriverDashboardScreen extends StatelessWidget {
                   BottomPerformanceCard(
                     todayEarnings: controller.todayEarnings.value,
                     walletBalance: controller.walletBalance.value,
+                    currency: controller.profile.value.currency,
                     profileScore: controller.profileScore.value,
                     rating: controller.driverRating.value,
                     cancellationRate: controller.cancellationRate.value,

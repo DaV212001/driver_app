@@ -573,7 +573,7 @@ class ActiveDeliveryScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: AutoSizeText(
-                                formatEtb(task.totalPayout),
+                                formatEtb(task.totalPayout, currency: task.currency),
                                 maxLines: 1,
                                 minFontSize: 11,
                                 style: const TextStyle(

@@ -72,6 +72,7 @@ class _StreetPickupBottomSheetState extends State<StreetPickupBottomSheet> {
   double _calculatedDistanceKm = 0.0;
   double _pickupKmPrice = 23.21;
   double _pickupStartPrice = 168.66;
+  String _currency = 'ETB';
   int _carTypeId = 1;
 
   // Autocomplete state for Pickup (Departure)
@@ -131,6 +132,7 @@ class _StreetPickupBottomSheetState extends State<StreetPickupBottomSheet> {
         if (deliveryPrice.pickupStartPrice > 0) {
           _pickupStartPrice = deliveryPrice.pickupStartPrice;
         }
+        _currency = deliveryPrice.displayCurrency;
       }
     } catch (_) {
       // Gracefully retain cached or fallback defaults (23.21 / 168.66)
@@ -1175,7 +1177,7 @@ class _StreetPickupBottomSheetState extends State<StreetPickupBottomSheet> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${_totalPriceCtrl.text} ETB',
+                      '${_totalPriceCtrl.text} $_currency',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,

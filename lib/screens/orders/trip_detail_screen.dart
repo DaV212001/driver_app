@@ -319,7 +319,7 @@ class TripDetailScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'ETB ${task.totalPayout.toStringAsFixed(1)}',
+                              '${task.displayCurrency} ${task.totalPayout.toStringAsFixed(1)}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,

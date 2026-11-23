@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../utils/currency_utils.dart';
 
 class BottomPerformanceCard extends StatelessWidget {
   final double todayEarnings;
   final double walletBalance;
+  final String? currency;
   final int profileScore;
   final double rating;
   final int cancellationRate;
@@ -16,6 +18,7 @@ class BottomPerformanceCard extends StatelessWidget {
     super.key,
     required this.todayEarnings,
     required this.walletBalance,
+    this.currency,
     required this.profileScore,
     required this.rating,
     required this.cancellationRate,
@@ -90,7 +93,7 @@ class BottomPerformanceCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     AutoSizeText(
-                      'ETB ${todayEarnings.toStringAsFixed(2)}',
+                      CurrencyUtils.format(todayEarnings, currency: currency),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
@@ -119,7 +122,7 @@ class BottomPerformanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       AutoSizeText(
-                        'ETB ${walletBalance.toStringAsFixed(1)}',
+                        CurrencyUtils.format(walletBalance, currency: currency, decimalDigits: 1),
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
