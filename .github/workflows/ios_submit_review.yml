@@ -13,9 +13,9 @@ on:
         description: 'Version Name (e.g., 1.0.12)'
         required: false
       release_notes:
-        description: 'Release Notes ("What\'s New in This Version")'
+        description: "Release Notes (What is new in this version)"
         required: false
-        default: 'Bug fixes and optimizations'
+        default: "Bug fixes and optimizations"
 
 jobs:
   submit-for-review:
@@ -31,8 +31,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: '**/requirements.txt'
 
       - name: Install Dependencies
         run: |
