@@ -1414,6 +1414,109 @@ void main() {
       controller.onClose();
       Get.reset();
     });
+
+    test('When driver lets incoming offer pass (taps Let it pass button), ringtone alert stops and storage is cleaned', () async {
+      Get.reset();
+      SharedPreferences.setMockInitialValues({});
+      await StorageConfig.init();
+      StorageConfig.setIsOnline(true);
+      StorageConfig.setActiveOrderId('');
+
+      final controller = Get.put<DriverDashboardController>(DriverDashboardController());
+      controller.isOnline.value = true;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('driver_pending_order_payload', '{"order_id": "8899"}');
+      NotificationService.pendingIncomingOffer = IncomingJobOffer.sample();
+
+      controller.triggerIncomingOffer();
+      expect(controller.incomingOffer.value, isNotNull);
+      expect(OrderAlertService.instance.isRinging.value, isTrue);
+
+      // Driver lets the offer pass
+      controller.dismissIncomingOffer(isTimeout: false);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.incomingOffer.value, isNull);
+      expect(controller.offerRemainingSeconds.value, 0);
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+      expect(NotificationService.pendingIncomingOffer, isNull);
+
+      // Verify persistent payload in SharedPreferences was removed
+      final remainingPayload = prefs.getString('driver_pending_order_payload');
+      expect(remainingPayload, isNull);
+
+      controller.onClose();
+      Get.reset();
+    });
+
+    test('When incoming offer times out (driver lets time pass), ringtone alert stops automatically', () async {
+      Get.reset();
+      SharedPreferences.setMockInitialValues({});
+      await StorageConfig.init();
+      StorageConfig.setIsOnline(true);
+      StorageConfig.setActiveOrderId('');
+
+      final controller = Get.put<DriverDashboardController>(DriverDashboardController());
+      controller.isOnline.value = true;
+
+      // Create an expired offer (elapsed seconds > 120)
+      final expiredOffer = IncomingJobOffer.sample(
+        receivedAt: DateTime.now().subtract(const Duration(seconds: 130)),
+      );
+      expect(expiredOffer.isExpired, isTrue);
+
+      // When expired offer is triggered, it must immediately dismiss and not ring
+      controller.triggerIncomingOffer(expiredOffer);
+
+      expect(controller.incomingOffer.value, isNull);
+      expect(controller.offerRemainingSeconds.value, 0);
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+
+      controller.onClose();
+      Get.reset();
+    });
+
+    test('When an expired order is restored from storage, alert is stopped and offer is dismissed', () async {
+      Get.reset();
+      SharedPreferences.setMockInitialValues({});
+      await StorageConfig.init();
+      StorageConfig.setIsOnline(true);
+      StorageConfig.setActiveOrderId('');
+
+      final navCtrl = Get.put<MainDriverNavigationController>(MainDriverNavigationController());
+      final controller = Get.put<DriverDashboardController>(DriverDashboardController());
+      controller.isOnline.value = true;
+
+      final expiredMap = {
+        'order_id': '9901',
+        'order_number': 'AMN-9901',
+        'type': 'new_order_assigned',
+        'fare_amount': '300.0',
+        'received_at': DateTime.now().subtract(const Duration(seconds: 140)).millisecondsSinceEpoch.toString(),
+        'duration_seconds': '120',
+      };
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('driver_pending_order_payload', jsonEncode(expiredMap));
+
+      await NotificationService.checkPendingOfferFromStorage();
+
+      // Expired order must NOT ring or show
+      expect(controller.incomingOffer.value, isNull);
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+      expect(prefs.getString('driver_pending_order_payload'), isNull);
+
+      navCtrl.onClose();
+      controller.onClose();
+      Get.reset();
+    });
+
+    test('OrderAlertService.stopRinging unconditionally silences alerts even if isRinging was false', () async {
+      OrderAlertService.instance.isRinging.value = false;
+      // Must execute cleanly without error
+      await OrderAlertService.instance.stopRinging();
+      expect(OrderAlertService.instance.isRinging.value, isFalse);
+    });
   });
 
   group('Operating City Dropdown & Registration Tests', () {

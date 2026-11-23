@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_ringtone_player_plus/flutter_ringtone_player.dart';
 import 'package:get/get.dart';
@@ -17,6 +19,9 @@ class OrderAlertService {
 
   static const String _prefSoundKey = 'driver_order_sound_enabled';
   static const String _prefVibrationKey = 'driver_order_vibration_enabled';
+  static const String orderAlertChannelKey = 'driver_order_alerts';
+  static const int orderAlertNotificationId = 8888;
+  static const MethodChannel _alertChannel = MethodChannel('com.amn.driver_app/alert');
 
   final RxBool isRinging = false.obs;
   final RxBool soundEnabled = true.obs;
@@ -45,15 +50,15 @@ class OrderAlertService {
   /// Start playing the phone ringing sound and rhythmically vibrating
   /// when an incoming order notification or job offer appears.
   Future<void> startRinging({Duration? autoStopAfter}) async {
+    final stopDuration = autoStopAfter ?? const Duration(seconds: 120);
+
+    // Refresh auto-stop timer
+    _autoStopTimer?.cancel();
+    _autoStopTimer = Timer(stopDuration, stopRinging);
+
     if (isRinging.value) return;
     isRinging.value = true;
     _logger.i('🔔 Starting Order Alert: Phone Ringtone & Vibration');
-
-    // Auto-stop after specified duration if provided
-    _autoStopTimer?.cancel();
-    if (autoStopAfter != null) {
-      _autoStopTimer = Timer(autoStopAfter, stopRinging);
-    }
 
     // Skip native hardware interaction in test mode
     if (Get.testMode || Platform.environment.containsKey('FLUTTER_TEST')) {
@@ -112,14 +117,15 @@ class OrderAlertService {
     }
   }
 
-  /// Stop ringing sound and cancel hardware vibration immediately
+  /// Stop ringing sound and cancel hardware vibration immediately.
+  /// Unconditionally silences hardware, native audio players across isolates,
+  /// and cancels active order alert notifications.
   Future<void> stopRinging() async {
     _autoStopTimer?.cancel();
     _autoStopTimer = null;
     _vibrationFallbackTimer?.cancel();
     _vibrationFallbackTimer = null;
 
-    if (!isRinging.value) return;
     isRinging.value = false;
     _logger.i('🔕 Stopped Order Alert');
 
@@ -127,16 +133,33 @@ class OrderAlertService {
       return;
     }
 
+    // 1. Stop Flutter ringtone player
     try {
       await FlutterRingtonePlayer().stop();
     } catch (e) {
       _logger.d('Stop sound notice: $e');
     }
 
+    // 2. Stop vibration
     try {
       await Vibration.cancel();
     } catch (e) {
       _logger.d('Stop vibration notice: $e');
+    }
+
+    // 3. Cancel active order notifications in the system tray
+    try {
+      await AwesomeNotifications().cancelNotificationsByChannelKey(orderAlertChannelKey);
+      await AwesomeNotifications().cancel(orderAlertNotificationId);
+    } catch (e) {
+      _logger.d('Cancel notification notice: $e');
+    }
+
+    // 4. Force native audio focus reset to silence any background isolate MediaPlayer
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await _alertChannel.invokeMethod('stopRingtone');
+      } catch (_) {}
     }
   }
 

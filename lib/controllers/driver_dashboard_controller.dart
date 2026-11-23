@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/dio_config.dart';
 import '../config/storage_config.dart';
 import '../constants/pages.dart';
@@ -128,6 +130,10 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     final pending = NotificationService.pendingIncomingOffer;
     if (pending != null) {
       NotificationService.pendingIncomingOffer = null;
+      if (pending.isExpired) {
+        dismissIncomingOffer(isTimeout: true);
+        return;
+      }
       NotificationService.routeToDashboard();
       triggerIncomingOffer(pending);
       return;
@@ -329,7 +335,9 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     offerRemainingSeconds.value = targetOffer.remainingSeconds;
 
     // Ring phone sound and vibrate for incoming order
-    OrderAlertService.instance.startRinging();
+    OrderAlertService.instance.startRinging(
+      autoStopAfter: Duration(seconds: targetOffer.remainingSeconds),
+    );
 
     final inTest = NotificationService.skipPermissionRequest || Get.testMode || Platform.environment.containsKey('FLUTTER_TEST');
     if (!inTest) {
@@ -352,8 +360,27 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
   /// Driver explicitly lets the offer pass or timer expires
   void dismissIncomingOffer({bool isTimeout = false}) {
     _offerTimer?.cancel();
+    _offerTimer = null;
+    final hadOffer = incomingOffer.value != null;
+    incomingOffer.value = null;
+    offerRemainingSeconds.value = 0;
+    NotificationService.pendingIncomingOffer = null;
+
     // Stop ringing sound and vibration
     OrderAlertService.instance.stopRinging();
+
+    // Cancel active AwesomeNotifications for order alerts
+    try {
+      AwesomeNotifications().cancelNotificationsByChannelKey(NotificationService.orderAlertChannelKey);
+      AwesomeNotifications().cancel(NotificationService.orderAlertNotificationId);
+    } catch (_) {}
+
+    // Clear pending offer from persistent storage
+    try {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.remove('driver_pending_order_payload');
+      });
+    } catch (_) {}
 
     // Immediately report battery level when driver lets offer pass or times out
     // Validates against excuses such as "my battery shut down"
@@ -363,9 +390,6 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
         reason: isTimeout ? 'offer_timeout' : 'offer_passed',
       );
     }
-
-    final hadOffer = incomingOffer.value != null;
-    incomingOffer.value = null;
 
     if (hadOffer && !Get.testMode && !Platform.environment.containsKey('FLUTTER_TEST')) {
       Get.snackbar(
@@ -389,8 +413,26 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     final offer = incomingOffer.value;
     if (offer == null) return;
     _offerTimer?.cancel();
+    _offerTimer = null;
+    incomingOffer.value = null;
+    offerRemainingSeconds.value = 0;
+    NotificationService.pendingIncomingOffer = null;
+
     // Stop ringing sound and vibration
     OrderAlertService.instance.stopRinging();
+
+    // Cancel active AwesomeNotifications for order alerts
+    try {
+      AwesomeNotifications().cancelNotificationsByChannelKey(NotificationService.orderAlertChannelKey);
+      AwesomeNotifications().cancel(NotificationService.orderAlertNotificationId);
+    } catch (_) {}
+
+    // Clear pending offer from persistent storage
+    try {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.remove('driver_pending_order_payload');
+      });
+    } catch (_) {}
 
     final rawDriverId = StorageConfig.getDriverId() ?? profile.value.id;
     final cleanDriverId = rawDriverId.replaceAll(RegExp(r'[^0-9]'), '');
@@ -399,9 +441,6 @@ class DriverDashboardController extends GetxController with WidgetsBindingObserv
     final activeId = cleanOrderId.isNotEmpty ? cleanOrderId : offer.id;
     StorageConfig.setActiveOrderId(activeId);
     StorageConfig.setActiveOrderType(offer.orderType);
-
-    // Immediately clear incoming offer and assign active accepted task
-    incomingOffer.value = null;
 
     final newTask = DeliveryTask(
       id: offer.id,

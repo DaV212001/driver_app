@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:awesome_notifications/awesome_notifications.dart';
@@ -86,7 +87,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     // Create high-priority full-screen alert notification with Accept/Dismiss buttons
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
-        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        id: NotificationService.orderAlertNotificationId,
         channelKey: NotificationService.orderAlertChannelKey,
         title: title,
         body: body,
@@ -94,6 +95,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         wakeUpScreen: true,
         fullScreenIntent: true,
         payload: payloadMap,
+        timeoutAfter: const Duration(seconds: 120),
+        autoDismissible: true,
         notificationLayout: NotificationLayout.Default,
         displayOnForeground: true,
         displayOnBackground: true,
@@ -170,6 +173,7 @@ class NotificationService {
 
   static const String channelKey = 'driver_notifications';
   static const String orderAlertChannelKey = 'driver_order_alerts';
+  static const int orderAlertNotificationId = 8888;
   static const String promoChannelKey = 'driver_promotions';
   static const String onlineServiceChannelKey = 'driver_online_service';
   static const String channelGroupKey = 'driver_channel_group';
@@ -911,24 +915,35 @@ class NotificationService {
 
   /// Safely trigger the offer on the DriverDashboardController
   static void _triggerOfferOnController(IncomingJobOffer offer) {
-    void tryTrigger() {
-      if (Get.isRegistered<DriverDashboardController>()) {
-        final ctrl = Get.find<DriverDashboardController>();
-        if (!ctrl.isOnline.value || ctrl.hasActiveAcceptedOrder) {
-          pendingIncomingOffer = null;
+    if (Get.isRegistered<DriverDashboardController>()) {
+      final ctrl = Get.find<DriverDashboardController>();
+      if (!ctrl.isOnline.value || ctrl.hasActiveAcceptedOrder) {
+        pendingIncomingOffer = null;
+        return;
+      }
+      routeToDashboard();
+      ctrl.triggerIncomingOffer(offer);
+      pendingIncomingOffer = null;
+    } else {
+      // If controller not mounted yet (cold-start / navigation settling), poll briefly until ready
+      int attempts = 0;
+      Timer.periodic(const Duration(milliseconds: 200), (timer) {
+        attempts++;
+        if (pendingIncomingOffer == null || attempts > 10) {
+          timer.cancel();
           return;
         }
-        routeToDashboard();
-        ctrl.triggerIncomingOffer(offer);
-        pendingIncomingOffer = null;
-      }
+        if (Get.isRegistered<DriverDashboardController>()) {
+          timer.cancel();
+          final ctrl = Get.find<DriverDashboardController>();
+          if (ctrl.isOnline.value && !ctrl.hasActiveAcceptedOrder) {
+            routeToDashboard();
+            ctrl.triggerIncomingOffer(offer);
+          }
+          pendingIncomingOffer = null;
+        }
+      });
     }
-
-    tryTrigger();
-    // Also retry after delays to allow cold-start / activity resume to settle
-    Future.delayed(const Duration(milliseconds: 250), tryTrigger);
-    Future.delayed(const Duration(milliseconds: 600), tryTrigger);
-    Future.delayed(const Duration(milliseconds: 1200), tryTrigger);
   }
 
   /// Ensures AwesomeNotifications channels are initialized (safe for both main & background isolates)
@@ -1078,7 +1093,7 @@ class NotificationService {
 
         AwesomeNotifications().createNotification(
           content: NotificationContent(
-            id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+            id: orderAlertNotificationId,
             channelKey: orderAlertChannelKey,
             title: title,
             body: body,
@@ -1086,6 +1101,8 @@ class NotificationService {
             wakeUpScreen: true,
             fullScreenIntent: true,
             payload: payloadMap,
+            timeoutAfter: const Duration(seconds: 120),
+            autoDismissible: true,
             notificationLayout: NotificationLayout.Default,
           ),
           actionButtons: [
@@ -1309,6 +1326,14 @@ class NotificationService {
         if (decoded is Map) {
           final map = Map<String, dynamic>.from(decoded);
           if (isOrderNotification(map) && !isPromotionNotification(map)) {
+            final offer = IncomingJobOffer.fromNotificationPayload(map);
+            if (offer.isExpired) {
+              await OrderAlertService.instance.stopRinging();
+              if (Get.isRegistered<DriverDashboardController>()) {
+                Get.find<DriverDashboardController>().dismissIncomingOffer(isTimeout: true);
+              }
+              return;
+            }
             dispatchIncomingOffer(map);
           }
         }
@@ -1329,6 +1354,12 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('driver_pending_order_payload');
+    } catch (_) {}
+
+    // Cancel order alert notifications
+    try {
+      await AwesomeNotifications().cancelNotificationsByChannelKey(orderAlertChannelKey);
+      await AwesomeNotifications().cancel(orderAlertNotificationId);
     } catch (_) {}
 
     if (receivedAction.buttonKeyPressed == 'DISMISS_ORDER') {
@@ -1377,6 +1408,10 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('driver_pending_order_payload');
+    } catch (_) {}
+    try {
+      await AwesomeNotifications().cancelNotificationsByChannelKey(orderAlertChannelKey);
+      await AwesomeNotifications().cancel(orderAlertNotificationId);
     } catch (_) {}
     if (Get.isRegistered<DriverDashboardController>()) {
       Get.find<DriverDashboardController>().dismissIncomingOffer();
