@@ -45,14 +45,14 @@ jobs:
           INPUT_VERSION_NAME: ${{ github.event.inputs.version_name }}
           INPUT_RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
         run: |
-          ARGS=""
+          ARGS=()
           if [ -n "$INPUT_BUILD_NUMBER" ]; then
-            ARGS="$ARGS --build-number=$INPUT_BUILD_NUMBER"
+            ARGS+=(--build-number "$INPUT_BUILD_NUMBER")
           fi
           if [ -n "$INPUT_VERSION_NAME" ]; then
-            ARGS="$ARGS --version-name=$INPUT_VERSION_NAME"
+            ARGS+=(--version-name "$INPUT_VERSION_NAME")
           fi
           if [ -n "$INPUT_RELEASE_NOTES" ]; then
-            ARGS="$ARGS --notes=\"$INPUT_RELEASE_NOTES\""
+            ARGS+=(--notes "$INPUT_RELEASE_NOTES")
           fi
-          python3 tool/submit_appstore_review.py $ARGS
+          python3 tool/submit_appstore_review.py "${ARGS[@]}"

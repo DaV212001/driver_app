@@ -382,9 +382,10 @@ def main():
         print_error(f"Failed to decode APPSTORE_API_KEY_BASE64: {e}")
         sys.exit(1)
 
-    # Resolve version info
-    version_name = args.version_name
-    build_number = args.build_number
+    # Resolve version info and notes
+    version_name = args.version_name or os.environ.get("INPUT_VERSION_NAME")
+    build_number = args.build_number or os.environ.get("INPUT_BUILD_NUMBER")
+    notes = os.environ.get("INPUT_RELEASE_NOTES") or args.notes or "Bug fixes and optimizations"
     if not version_name or not build_number:
         try:
             detected_ver, detected_build = read_pubspec_version()
@@ -400,7 +401,7 @@ def main():
     print(f"Bundle ID:     {args.bundle_id}")
     print(f"Version Name:  {version_name}")
     print(f"Build Number:  {build_number}")
-    print(f"Release Notes: {args.notes}")
+    print(f"Release Notes: {notes}")
     print("======================================================================\n")
 
     client = AppStoreClient(key_id, issuer_id, private_key_pem)
@@ -409,7 +410,7 @@ def main():
         app_id = client.get_app_id(args.bundle_id)
         build_id = client.wait_for_build(app_id, build_number, max_wait_mins=args.max_wait_mins)
         version_id = client.get_or_create_app_store_version(app_id, version_name)
-        client.update_release_notes(version_id, args.notes)
+        client.update_release_notes(version_id, notes)
         client.attach_build_to_version(version_id, build_id)
         client.submit_for_review(app_id, version_id)
         print("\n======================================================================")
