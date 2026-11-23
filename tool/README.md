@@ -1,89 +1,69 @@
-# Google Play Release Automation Tool (Driver App)
+# AMN Driver — Release Automation Tools
 
-An automated, native Dart release script for **AMN Driver** (`com.amn.driver`) that:
-1. **Increments version/build numbers** in `pubspec.yaml`.
-2. **Builds a signed release Android App Bundle (`.aab`)** via `flutter build appbundle --release`.
-3. **Uploads and commits the release** to Google Play Console (Internal, Closed, or Production track) via the Google Play Android Developer API.
+Unified automated release suite for **AMN Driver** (`com.amn.driver` / `com.amn.driverApp`):
+- **Android**: Automated build, version bump, and upload to Google Play Console via the Android Publisher API.
+- **iOS**: Automated cloud build, TestFlight deployment, and App Store Review submission via GitHub Actions and App Store Connect API.
 
 ---
 
-## Quick Start
+## Quick Navigation
 
-### 1. Service Account JSON Key
+- [1. Android (Google Play Release)](#1-android-google-play-release)
+- [2. iOS (TestFlight & App Store Review Release)](#2-ios-testflight--app-store-review-release)
+- [3. Full iOS Architecture & Submitter Docs](file:///c:/flutter_dev/projects/driver_app/tool/IOS_RELEASE_AND_REVIEW.md)
+
+---
+
+## 1. Android (Google Play Release)
+
+Native Dart release tool (`tool/release.dart`) that increments version numbers, builds the signed `.aab`, and uploads to Google Play Console.
+
+### Service Account Key
 Your Google Cloud Service Account JSON key is located at:
 ```text
 android/play-service-account.json
 ```
-*(This path is already configured in `.gitignore` so your private key will never be committed to version control).*
+*(Protected by `.gitignore`).*
 
-### 2. Test with a Dry Run
-Simulates the entire workflow without touching `pubspec.yaml` or uploading:
-```powershell
-dart run tool/release.dart --dry-run
-```
-
-### 3. Deploy to Google Play (Internal Testing Track)
-Builds, signs, increments build number, and uploads to the Internal track:
-```powershell
-dart run tool/release.dart
-```
-
----
-
-## Common Release Commands
-
+### Common Android Commands
 | Goal | Command |
 |---|---|
-| **Standard build bump to Internal track** (e.g. `1.0.0+1` $\rightarrow$ `1.0.0+2`) | `dart run tool/release.dart` |
-| **Patch release to Production** (e.g. `1.0.0+1` $\rightarrow$ `1.0.1+2`) | `dart run tool/release.dart --bump=patch --track=production` |
-| **Minor release with release notes** (e.g. `1.0.0+1` $\rightarrow$ `1.1.0+2`) | `dart run tool/release.dart --bump=minor --notes="Driver live routing & delivery flow updates"` |
-| **Dry run** (simulates everything without touching files or uploading) | `dart run tool/release.dart --dry-run` |
-| **Only build & increment version** (skip upload) | `dart run tool/release.dart --skip-upload` |
-| **Upload existing `.aab`** (skip rebuild) | `dart run tool/release.dart --skip-build` |
-| **Upload as draft** | `dart run tool/release.dart --draft` |
+| **Standard build bump to Internal track** | `dart run tool/release.dart` |
+| **Patch release to Production track** | `dart run tool/release.dart --bump=patch --track=production` |
+| **Release current version to Production** | `dart run tool/release.dart --bump=none --track=production --notes="Bug fixes and optimizations"` |
+| **Dry run** (preview without building/uploading) | `dart run tool/release.dart --dry-run` |
+| **Skip build** (upload existing `.aab`) | `dart run tool/release.dart --skip-build` |
 
 ---
 
-## CLI Options Reference
+## 2. iOS (TestFlight & App Store Review Release)
 
-| Flag | Default | Description |
-|---|---|---|
-| `--track=<name>` | `internal` | Target track: `internal`, `alpha`, `beta`, or `production` |
-| `--bump=<type>` | `build` | Version bump type: `build`, `patch`, `minor`, `major`, or `none` |
-| `--version=<x.y.z+n>` | *(auto)* | Specify an exact version string (e.g. `--version=1.2.0+15`) |
-| `--notes="<text>"` | `'Bug fixes...'` | Release notes displayed in Play Console |
-| `--key=<path>` | *(auto)* | Custom path to the Service Account JSON key |
-| `--package-name=<id>` | *(auto)* | Override package name (auto-detected from `build.gradle.kts`: `com.amn.driver`) |
-| `--dry-run` | `false` | Run simulation without modifying `pubspec.yaml` or uploading |
-| `--skip-build` | `false` | Upload existing `.aab` without running `flutter build` |
-| `--skip-upload` | `false` | Bump version and build `.aab` without uploading |
-| `--draft` | `false` | Create a draft release in Play Console instead of publishing |
-| `-h, --help` | - | Display help menu |
+Dual-stage cloud automation that builds and submits your iOS app to TestFlight and Apple App Store Review from Windows without local macOS hardware.
+
+### Stage 1: Build & Upload to TestFlight (`ios_release.yml`)
+Runs on GitHub Actions macOS runner, signs with distribution profile, and uploads the `.ipa` to App Store Connect.
+```powershell
+# Bump patch and trigger cloud build + TestFlight upload
+dart run tool/release_ios.dart --bump=patch
+
+# Trigger current version without bumping
+dart run tool/release_ios.dart --bump=none
+
+# Trigger without streaming logs
+dart run tool/release_ios.dart --bump=none --no-watch
+```
+
+### Stage 2: Independent Review Submitter (`ios_submit_review.yml`)
+Runs on GitHub Actions `ubuntu-latest` (fast, free, unlimited minutes for public repos).
+- **Automatic**: Triggers automatically as soon as Stage 1 completes successfully.
+- **Manual**: Can be triggered anytime to submit an existing build without rebuilding:
+  ```powershell
+  gh workflow run ios_submit_review.yml
+  gh workflow run ios_submit_review.yml -f build_number=18 -f version_name=1.0.12
+  ```
 
 ---
 
-## Signing Configuration
-
-App signing is configured in `android/app/build.gradle.kts`:
-* **Keystore**: `android/app/upload-keystore.jks`
-* **Keystore credentials**: `android/key.properties` (protected by `.gitignore`)
-
-When `dart run tool/release.dart` runs, it executes `flutter build appbundle --release`, which Gradle signs using this configuration before upload.
-
----
-
-## Troubleshooting & Notes
-
-> [!NOTE]
-> **Track Status**:
-> - `internal`: Internal testing track (fastest distribution, recommended for staging and QA).
-> - `alpha` / `closed`: Closed testing track.
-> - `beta` / `open`: Open testing track.
-> - `production`: Public Google Play release.
-
-> [!TIP]
-> **Draft Releases**:
-> If you want to inspect the release in the Google Play Console UI before rolling it out to users, pass the `--draft` flag:
-> ```powershell
-> dart run tool/release.dart --draft
-> ```
+## Detailed Guides
+For full iOS architecture diagrams, secret specifications, export compliance settings, and API details, see:
+- [IOS_RELEASE_AND_REVIEW.md](file:///c:/flutter_dev/projects/driver_app/tool/IOS_RELEASE_AND_REVIEW.md)
