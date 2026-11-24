@@ -1,9 +1,8 @@
 name: iOS App Store Review Submitter
 
 on:
-  workflow_run:
-    workflows: ["iOS TestFlight Release"]
-    types: [completed]
+  # workflow_run is disabled to prevent test/draft builds from automatically submitting to App Store Review.
+  # Trigger manually via workflow_dispatch when ready to submit.
   workflow_dispatch:
     inputs:
       build_number:
@@ -21,7 +20,7 @@ jobs:
   submit-for-review:
     name: Submit Build to App Store Review
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout Code
